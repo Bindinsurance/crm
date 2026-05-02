@@ -59,16 +59,8 @@ async function sbLogout() {
 
 async function loadClients() {
   if (!sbClient || !sbUser) return null;
-  let allData = [], from = 0, pageSize = 1000;
-  while(true){
-    const { data, error } = await sbClient.from('clients').select('*').order('created_at', { ascending: false }).range(from, from + pageSize - 1);
-    if (error) { console.error('Load error:', error); return null; }
-    if (!data || data.length === 0) break;
-    allData = allData.concat(data);
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-  const data = allData;
+  const { data, error } = await sbClient.from('clients').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Load error:', error); return null; }
   return data.map(r => ({
     id: r.id, fn: r.fn||'', ln: r.ln||'', email: r.email||'', phone: r.phone||'',
     language: r.language||'Português', city: r.city||'', state: r.state||'', county: r.county||'',
@@ -142,21 +134,21 @@ const SVCS=[{k:'health',label:'Saúde',icon:'🏥',bg:C.blueL,c:C.blue},{k:'car'
 
 // Cancel reasons from spreadsheet analysis
 const CANCEL_REASONS=[
-  'Voltou ao Brasil',
-  'Pegou seguro no trabalho',
+  'A pedido do cliente',
+  'Cancelado pelo sistema',
   'Imposto / Renda alta',
   'Medicare / Medicaid',
-  'Não quer renovar',
-  'Não quer fazer imposto',
-  'Troca de agente',
-  'Não responde mensagens',
-  'Mudou de estado',
-  'Visto / Documentação (I-94)',
-  'Plano do cônjuge / família',
-  'Não pode pagar',
   'Medo imigração',
-  'Cancelado pelo sistema',
-  'A pedido do cliente',
+  'Mudou de estado',
+  'Não pode pagar',
+  'Não quer fazer imposto',
+  'Não quer renovar',
+  'Não responde mensagens',
+  'Pegou seguro no trabalho',
+  'Plano do cônjuge / família',
+  'Troca de agente',
+  'Visto / Documentação (I-94)',
+  'Voltou ao Brasil',
   'Outro'
 ];
 
@@ -195,12 +187,13 @@ const SEED=[
 let ST={page:'login',user:null,data:[...SEED],drawer:null,drawerTab:'info',showSetup:false,showKeySetup:false,confirmDel:null,search:'',filters:{},showFilters:false,dashMonth:'',dashYear:String(new Date().getFullYear())};
 
 function ss(p){Object.assign(ST,p);render();}
-const fmt$=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt$=n=>'$'+Number(n||0).toLocaleString('en-US');
 const pct=(a,b)=>b?Math.round(a/b*100):0;
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const av=(name,color,sz=30)=>{const i=(name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${sz*.35}px;font-weight:700;flex-shrink:0">${i}</div>`;};
 const tag=(t,bg,cl,sz=11)=>`<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:${sz}px;font-weight:600;background:${bg};color:${cl};white-space:nowrap">${esc(t)}</span>`;
-const stCfg=s=>{const l=(s||'').toLowerCase();if(l==='application')return{label:'Ativo',bg:C.greenL,c:C.green};if(l==='cancel')return{label:'Cancelado',bg:C.redL,c:C.red};return{label:s||'—',bg:'#f1f5f9',c:C.muted};};
+const isCancel=s=>(s||'').toLowerCase().startsWith('cancel');
+const stCfg=s=>{const l=(s||'').toLowerCase();if(l==='application'||l==='ativo')return{label:'Ativo',bg:C.greenL,c:C.green};if(isCancel(s))return{label:'Cancelado',bg:C.redL,c:C.red};return{label:s||'—',bg:'#f1f5f9',c:C.muted};};
 const acol=a=>a==='Eduardo'?C.blue:C.purple;
 const svcB=k=>{const s=SVCS.find(x=>x.k===k);return s?`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:10px;font-weight:600;background:${s.bg};color:${s.c};white-space:nowrap">${s.icon}${s.label}</span>`:'';}
 
@@ -223,12 +216,12 @@ function getFiltered(){
     if(f.consent){const has=c.consent==='X'||c.consent==='x';if(f.consent==='yes'&&!has)return false;if(f.consent==='no'&&has)return false;}
     if(f.emailRenovEnviado!==undefined&&f.emailRenovEnviado!==''){if(Boolean(c.emailRenovEnviado)!==Boolean(f.emailRenovEnviado==='true'))return false;}
     if(f.notifUpdateEnviado!==undefined&&f.notifUpdateEnviado!==''){if(Boolean(c.notifUpdateEnviado)!==Boolean(f.notifUpdateEnviado==='true'))return false;}
+    if(f.phone){if(!c.phone)return false;}
     return true;
   });
 }
 
 function render(){
-  const _sf=document.activeElement?.id==='srch';
   const app=document.getElementById('app');
   if(ST.showKeySetup){app.innerHTML=rLogin()+rKeySetup();bindKeyEv();return;}
   if(ST.page==='login'){
@@ -244,7 +237,6 @@ function render(){
   }
   app.innerHTML=`<div style="display:flex;height:100vh;overflow:hidden">${rSidebar()}<div style="flex:1;overflow:auto;background:${C.bg}">${ST.page==='dashboard'?rDash():rClients()}</div></div>${ST.drawer?rDrawer():''}${ST.showSetup?rSetup():''}${ST.confirmDel?rConfirmDel():''}`;
   bindEv();
-  if(_sf){const s=document.getElementById('srch');if(s){s.focus();s.setSelectionRange(s.value.length,s.value.length);}}
 }
 
 // ===== LOGIN =====
@@ -255,9 +247,9 @@ function rLogin(){return `<div style="min-height:100vh;display:flex;align-items:
     <h1 style="font-size:21px;font-weight:800;color:${C.text}">Bind Insurance</h1>
     <p style="font-size:11px;color:${C.muted};margin-top:3px">Sistema de Gestão de Clientes</p>
   </div>
-  <div style="background:${C.blueL};border-radius:7px;padding:8px 12px;margin-bottom:16px;font-size:11px;color:${C.blue}">🔑 Use o <strong>email e senha</strong> cadastrados no Supabase</div>
+  <div style="background:${C.blueL};border-radius:7px;padding:8px 12px;margin-bottom:16px;font-size:11px;color:${C.blue}"><strong>Demo:</strong> Eduardo/edu2024 · Larissa/lar2024 · admin/admin2024</div>
   <div style="display:flex;flex-direction:column;gap:11px">
-    <div><label style="display:block;font-size:11px;font-weight:600;color:${C.text};margin-bottom:4px">Email</label><input id="lgu" type="email" placeholder="seu@email.com" style="width:100%;padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:13px;outline:none"></div>
+    <div><label style="display:block;font-size:11px;font-weight:600;color:${C.text};margin-bottom:4px">Usuário</label><input id="lgu" placeholder="Usuário" style="width:100%;padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:13px;outline:none"></div>
     <div><label style="display:block;font-size:11px;font-weight:600;color:${C.text};margin-bottom:4px">Senha</label><input id="lgp" type="password" placeholder="Senha" style="width:100%;padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:13px;outline:none"></div>
     <div id="lgerr" style="color:${C.red};font-size:12px;text-align:center;display:none"></div>
     <button id="lgbtn" class="btn" style="background:linear-gradient(135deg,${C.blue},${C.purple});color:#fff;border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:600">Entrar</button>
@@ -280,9 +272,13 @@ function rSidebar(){
 function rDash(){
   const d=ST.data;
   const active=d.filter(c=>(c.status||'').toLowerCase()==='application');
-  const cancelled=d.filter(c=>(c.status||'').toLowerCase()==='cancel');
-  const totalMo=d.reduce((s,c)=>s+(Number(c.mo)||0),0);
-  const totalYr=d.reduce((s,c)=>s+(Number(c.yr)||0||(Number(c.mo)||0)*(Number(c.months)||12)),0);
+  const cancelled=d.filter(c=>isCancel(c.status));
+  const healthActive=active.filter(c=>(c.services||[]).includes('health'));
+  const carActive=active.filter(c=>(c.services||[]).includes('car'));
+  const healthMo=healthActive.reduce((s,c)=>s+(Number(c.mo)||0),0);
+  const healthYr=healthActive.reduce((s,c)=>s+(Number(c.yr)||0),0);
+  const carMo=carActive.reduce((s,c)=>s+(Number(c.valuePol)||0)/6,0);
+  const carYr=carActive.reduce((s,c)=>s+(Number(c.valuePol)||0)*2,0);
   const pendEmail=d.filter(c=>!c.emailRenovEnviado&&(c.status||'').toLowerCase()==='application').length;
   const pendNotif=d.filter(c=>!c.notifUpdateEnviado&&(c.status||'').toLowerCase()==='application').length;
   const byAgent=AGENTS.reduce((acc,a)=>{const ag=d.filter(c=>c.agent===a);acc[a]={total:ag.length,active:ag.filter(c=>(c.status||'').toLowerCase()==='application').length,mo:ag.reduce((s,c)=>s+(Number(c.mo)||0),0)};return acc;},{});
@@ -305,7 +301,7 @@ function rDash(){
     if(m.startsWith(selYear)){
       const mo=parseInt(m.slice(5,7),10)-1;
       if(mo>=0&&mo<12){
-        if((c.status||'').toLowerCase()==='cancel')monthCancels[mo]++;
+        if(isCancel(c.status))monthCancels[mo]++;
         else monthApps[mo]++;
       }
     }
@@ -315,15 +311,22 @@ function rDash(){
   return `<div class="fade" style="padding:22px;max-width:1140px">
   <div style="margin-bottom:18px"><h2 style="font-size:19px;font-weight:800;color:${C.text}">Olá, ${esc(ST.user?.name)}! 👋</h2><p style="font-size:12px;color:${C.muted};margin-top:2px">Visão geral dos seus clientes</p></div>
 
-  <!-- KPI row -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:14px">
+  <!-- KPI row 1: counts -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:11px">
     ${[
       {l:'Total',v:d.length,c:C.blue,i:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'},
       {l:'Ativos',v:active.length,sub:pct(active.length,d.length)+'%',c:C.green,i:'<polyline points="20 6 9 17 4 12"/>'},
       {l:'Cancelados',v:cancelled.length,sub:pct(cancelled.length,d.length)+'%',c:C.red,i:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'},
-      {l:'Receita Mensal',v:fmt$(totalMo),c:C.amber,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
-      {l:'Receita Anual',v:fmt$(totalYr),c:C.purple,i:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'},
     ].map(s=>`<div style="background:${C.card};border-radius:10px;padding:14px 15px;border:1px solid ${C.border}"><div style="width:29px;height:29px;border-radius:7px;background:${s.c}22;display:flex;align-items:center;justify-content:center;color:${s.c};margin-bottom:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${s.i}</svg></div><div style="font-size:20px;font-weight:800;color:${C.text}">${s.v}</div><div style="font-size:10px;color:${C.muted};margin-top:1px">${s.l}</div>${s.sub?`<div style="font-size:9px;color:${C.light}">${s.sub} do total</div>`:''}</div>`).join('')}
+  </div>
+  <!-- KPI row 2: revenue split health / car -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px">
+    ${[
+      {l:'🏥 Saúde Mensal',v:fmt$(healthMo),c:C.blue,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
+      {l:'🏥 Saúde Anual',v:fmt$(healthYr),c:C.blue,i:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'},
+      {l:'🚗 Carro Mensal',v:fmt$(carMo),c:C.amber,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
+      {l:'🚗 Carro Anual',v:fmt$(carYr),c:C.amber,i:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'},
+    ].map(s=>`<div style="background:${C.card};border-radius:10px;padding:14px 15px;border:1px solid ${C.border}"><div style="width:29px;height:29px;border-radius:7px;background:${s.c}22;display:flex;align-items:center;justify-content:center;color:${s.c};margin-bottom:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${s.i}</svg></div><div style="font-size:20px;font-weight:800;color:${C.text}">${s.v}</div><div style="font-size:10px;color:${C.muted};margin-top:1px">${s.l}</div></div>`).join('')}
   </div>
 
   <!-- Row 2: agents + services + renewal -->
@@ -435,9 +438,10 @@ function rClients(){
         ${fSel('fCancelReason','cancelReason','Motivo Cancelamento',CANCEL_REASONS)}
         <div><label style="display:block;font-size:9px;font-weight:700;color:${C.muted};margin-bottom:3px;text-transform:uppercase">Consentimento</label><select id="fConsent" style="${iS}"><option value="">Todos</option><option value="yes" ${ST.filters.consent==='yes'?'selected':''}>✅ Com consent.</option><option value="no" ${ST.filters.consent==='no'?'selected':''}>❌ Sem consent.</option></select></div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${fYN('fEmailRenov','emailRenovEnviado','📧 Email Renovação')}
         ${fYN('fNotifUpdate','notifUpdateEnviado','📲 Notif. Update')}
+        <div><label style="display:block;font-size:9px;font-weight:700;color:${C.muted};margin-bottom:3px;text-transform:uppercase">📞 Telefone</label><select id="fPhone" style="${iS}"><option value="">Todos</option><option value="yes" ${ST.filters.phone==='yes'?'selected':''}>✅ Com telefone</option></select></div>
       </div>
     </div>`:''}
   </div>
@@ -617,28 +621,29 @@ function bindKeyEv() {
 function bindEv(){
   document.getElementById('btnConfigKey')?.addEventListener('click', () => ss({showKeySetup: true}));
   const doLogin=async()=>{
-    const email=document.getElementById('lgu')?.value.trim();
+    const u=document.getElementById('lgu')?.value.trim();
     const p=document.getElementById('lgp')?.value;
     const btn=document.getElementById('lgbtn');
-    if(!email||!p){
-      const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Preencha email e senha';}
-      return;
-    }
     if(btn){btn.textContent='Entrando...';btn.disabled=true;}
+    // Map username to email
+    const emailMap={'Eduardo':'eduardo@bindinsurance.com','Larissa':'larissa@bindinsurance.com','admin':'admin@bindinsurance.com'};
+    const email=emailMap[u];
+    if(!email){
+      const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Usuário não encontrado';}
+      if(btn){btn.textContent='Entrar';btn.disabled=false;}return;
+    }
     if(!sbClient){
       const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Configure a chave API primeiro (botão ⚙️ abaixo)';}
       if(btn){btn.textContent='Entrar';btn.disabled=false;}return;
     }
     const {error}=await sbLogin(email,p);
     if(error){
-      const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Email ou senha incorretos';}
+      const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Senha incorreta';}
       if(btn){btn.textContent='Entrar';btn.disabled=false;}return;
     }
+    // Load clients from Supabase
     const clients=await loadClients();
-    // Derive display name from email (part before @)
-    const namePart=email.split('@')[0];
-    const displayName=namePart.charAt(0).toUpperCase()+namePart.slice(1);
-    const userObj=USERS.find(x=>x.u.toLowerCase()===namePart.toLowerCase())||{u:displayName,name:displayName,color:C.blue};
+    const userObj=USERS.find(x=>x.u===u)||{u,name:u,color:C.blue};
     ss({user:userObj,page:'dashboard',data:clients||ST.data});
   };
   document.getElementById('lgbtn')?.addEventListener('click',doLogin);
@@ -649,18 +654,15 @@ function bindEv(){
   document.getElementById('setupClose')?.addEventListener('click',()=>ss({showSetup:false}));
   document.getElementById('selDashYear')?.addEventListener('change',e=>ss({dashYear:e.target.value}));
   // Search & filters
-  let _srchT; document.getElementById('srch')?.addEventListener('input',e=>{ST.search=e.target.value;clearTimeout(_srchT);_srchT=setTimeout(()=>render(),300);});
+  document.getElementById('srch')?.addEventListener('input',e=>ss({search:e.target.value}));
   document.getElementById('btnFilter')?.addEventListener('click',()=>ss({showFilters:!ST.showFilters}));
   document.getElementById('btnClearAll')?.addEventListener('click',()=>ss({filters:{}}));
-  const fMap={fAgent:'agent',fState:'state',fStatus:'status',fSource:'source',fVisa:'visa',fType:'type',fLang:'language',fService:'service',fCarrier:'carrier',fCounty:'county',fCancelReason:'cancelReason',fConsent:'consent',fEmailRenov:'emailRenovEnviado',fNotifUpdate:'notifUpdateEnviado'};
-  Object.entries(fMap).forEach(([id,key])=>{
-    const el=document.getElementById(id);if(!el)return;
-    el.addEventListener('change',e=>{const filters={...ST.filters};const v=e.target.value;if(!v)delete filters[key];else filters[key]=v;ss({filters});});
-  });
+  const fMap={fAgent:'agent',fState:'state',fStatus:'status',fSource:'source',fVisa:'visa',fType:'type',fLang:'language',fService:'service',fCarrier:'carrier',fCounty:'county',fCancelReason:'cancelReason',fConsent:'consent',fEmailRenov:'emailRenovEnviado',fNotifUpdate:'notifUpdateEnviado',fPhone:'phone'};
+  Object.entries(fMap).forEach(([id,key])=>document.getElementById(id)?.addEventListener('change',e=>{const filters={...ST.filters};const v=e.target.value;if(!v)delete filters[key];else filters[key]=v;ss({filters});}));
   // Add
   document.getElementById('btnAdd')?.addEventListener('click',()=>ss({drawer:{mode:'add',form:{fn:'',ln:'',email:'',phone:'',language:'Português',city:'',state:'FL',county:'',services:['health'],carrier:'Oscar Insurance Company of Florida',ap:1,an2:0,source:'Renew',status:'Application',visa:'',agent:'Larissa',appMonth:'',consent:'X',months:12,effDate:'',type:'Obamacare',val:28,mo:0,yr:0,renovado:'',cancelReason:'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:'',carCarrier:'Progressive',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'}},drawerTab:'info'}));
-  document.querySelectorAll('.btn-edit').forEach(btn=>{btn.onclick=()=>{const c=ST.data.find(x=>String(x.id)===String(btn.dataset.id));if(c)ss({drawer:{mode:'edit',client:c,form:{...c}},drawerTab:'info'});};});
-  document.querySelectorAll('.btn-del').forEach(btn=>{btn.onclick=()=>{const c=ST.data.find(x=>String(x.id)===String(btn.dataset.id));if(c)ss({confirmDel:c});};});
+  document.querySelectorAll('.btn-edit').forEach(btn=>{btn.onclick=()=>{const c=ST.data.find(x=>x.id===Number(btn.dataset.id));if(c)ss({drawer:{mode:'edit',client:c,form:{...c}},drawerTab:'info'});};});
+  document.querySelectorAll('.btn-del').forEach(btn=>{btn.onclick=()=>{const c=ST.data.find(x=>x.id===Number(btn.dataset.id));if(c)ss({confirmDel:c});};});
   document.getElementById('delCancel')?.addEventListener('click',()=>ss({confirmDel:null}));
   document.getElementById('delConfirm')?.addEventListener('click',()=>{const id=ST.confirmDel.id;deleteClient(id);ss({data:ST.data.filter(c=>c.id!==id),confirmDel:null});});
   // Toggle inline
@@ -708,7 +710,7 @@ function bindEv(){
       const reader=new FileReader();
       reader.onload=evt=>{
         try{
-          const wb=XLSX.read(evt.target.result,{type:'binary'});
+          const wb=XLSX.read(evt.target.result,{type:'binary',cellDates:true});
           let allClients=[];
           let counter=0;
           const sheetSummary=[];
@@ -730,7 +732,7 @@ function bindEv(){
             if(isCarSheet){
               sheetClients=dataRows.map((r,i)=>{
                 const st=(String(r[3]||'').toLowerCase()==='cancelou'||String(r[3]||'').toLowerCase().includes('cancel'))?'cancel':'Application';
-                return {id:'imp_'+(++counter),fn:String(r[0]||'').trim(),ln:String(r[1]||'').trim(),email:String(r[2]||''),phone:'',language:'Português',city:String(r[4]||''),state:String(r[5]||''),county:'',services:['car'],carrier:'',ap:0,an2:0,source:'',status:st,visa:'',agent:String(r[11]||''),appMonth:'',consent:'',months:0,effDate:'',type:'Carro',val:0,mo:0,yr:0,renovado:String(r[3]||''),cancelReason:st==='cancel'?'A pedido do cliente':'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:String(r[10]||''),carCarrier:String(r[6]||''),policyNum:String(r[7]||''),effDateCar:String(r[8]||''),expireDateCar:String(r[9]||''),numCars:Number(r[12])||0,deductible:Number(r[13])||0,valuePol:Number(r[14])||0,carSource:String(r[10]||''),carType:String(r[17]||'personal')};
+                return {id:'imp_'+(++counter),fn:String(r[0]||'').trim(),ln:String(r[1]||'').trim(),email:String(r[2]||''),phone:'',language:'Português',city:String(r[4]||''),state:String(r[5]||''),county:'',services:['car'],carrier:'',ap:0,an2:0,source:'',status:st,visa:'',agent:String(r[11]||''),appMonth:'',consent:'',months:0,effDate:'',type:'Carro',val:0,mo:0,yr:0,renovado:String(r[3]||''),cancelReason:st==='cancel'?'A pedido do cliente':'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:String(r[10]||''),carCarrier:String(r[6]||''),policyNum:String(r[7]||''),effDateCar:'',expireDateCar:'',numCars:Number(r[12])||0,deductible:Number(r[13])||0,valuePol:Number(r[14])||0,carSource:String(r[10]||''),carType:String(r[17]||'personal')};
               });
             } else {
               const has26=hdr.some(h=>String(h||'').toLowerCase().includes('phone'));
@@ -742,20 +744,15 @@ function bindEv(){
                 const emailRenov=has26?(r[5]==='X'||r[5]==='x'):has25?(r[3]==='X'||r[3]==='x'):false;
                 const renovado=has26?String(r[6]||''):has25?String(r[4]||''):'';
                 const b=has26?7:has25?5:3;
-                const rawStatus=String(r[b+7]||'');
+                const rawStatus=String(r[b+8]||'');
                 const isCancelled=rawStatus.toLowerCase().includes('cancel')||rawStatus.toLowerCase()==='cancelou';
                 const status=isCancelled?'cancel':(rawStatus.toLowerCase()==='application'||rawStatus.toLowerCase()==='new'||rawStatus.toLowerCase()==='cliente'?'Application':rawStatus);
                 const yr=sheetName.includes('2024')?'2024':sheetName.includes('2025')?'2025':sheetName.includes('2026')?'2026':'';
-                const appMonthRaw=r[b+10];
+                const appMonthRaw=r[b+12];
                 let appMonth='';
                 if(appMonthRaw instanceof Date){appMonth=appMonthRaw.toISOString().slice(0,7);}
-                else if(typeof appMonthRaw==='string'&&appMonthRaw){
-                  const monthMap={january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',janeiro:'01',fevereiro:'02','março':'03',abril:'04',maio:'05',junho:'06',julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12'};
-                  const m=appMonthRaw.match(/^([a-zÀ-ɏ]+)[^a-z0-9]*(\d{2,4})$/i);
-                  if(m){const mn=monthMap[m[1].toLowerCase()];const yy=m[2].length===2?'20'+m[2]:m[2];if(mn)appMonth=yy+'-'+mn;}
-                  else{appMonth=appMonthRaw.slice(0,7);}
-                }
-                return {id:'imp_'+(++counter),fn,ln,email,phone,language:lang||'Português',city:String(r[b]||''),state:String(r[b+1]||''),county:String(r[b+2]||''),services:['health'],carrier:String(r[b+3]||''),ap:Number(r[b+4])||0,an2:Number(r[b+5])||0,source:String(r[b+6]||''),status,visa:String(r[b+8]||''),agent:String(r[b+9]||''),appMonth,consent:String(r[b+11]||''),months:Number(r[b+12])||0,effDate:'',type:'Obamacare',val:Number(r[b+13])||0,mo:(Number(r[b+4])||0)*(Number(r[b+13])||0),yr:(Number(r[b+4])||0)*(Number(r[b+13])||0)*(Number(r[b+12])||0),renovado,cancelReason:isCancelled?rawStatus:'',emailRenovEnviado:emailRenov,notifUpdateEnviado:false,obs:'',carCarrier:'',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'};
+                else if(appMonthRaw){appMonth=String(appMonthRaw).slice(0,7);}
+                return {id:'imp_'+(++counter),fn,ln,email,phone,language:lang||'Português',city:String(r[b]||''),state:String(r[b+1]||''),county:String(r[b+2]||''),services:['health'],carrier:String(r[b+3]||''),ap:Number(r[b+4])||0,an2:Number(r[b+5])||0,source:String(r[b+6]||''),status,visa:String(r[b+9]||''),agent:String(r[b+10]||''),appMonth,consent:String(r[b+12+1]||''),months:Number(r[b+14])||0,effDate:'',type:String(r[b+16]||'Obamacare'),val:Number(r[b+15])||0,mo:(Number(r[b+4])||0)*(Number(r[b+15])||0),yr:(Number(r[b+4])||0)*(Number(r[b+15])||0)*(Number(r[b+14])||12),renovado,cancelReason:isCancelled?rawStatus:'',emailRenovEnviado:emailRenov,notifUpdateEnviado:false,obs:'',carCarrier:'',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'};
               });
             }
 
@@ -765,35 +762,8 @@ function bindEv(){
           });
 
           if(allClients.length===0){alert('Nenhum dado encontrado na planilha.');return;}
-
-          // Ask user: replace or add
-          const choice=confirm(
-            '📋 Importação encontrou ' + allClients.length + ' clientes:\n\n' +
-            sheetSummary.join('\n') +
-            '\n\n' +
-            'Clique OK para SUBSTITUIR todos os dados atuais.\n' +
-            'Clique Cancelar para ADICIONAR aos dados existentes.'
-          );
-
-          const finalData = choice ? allClients : [...ST.data, ...allClients];
-          ss({data: finalData});
-          if(sbClient&&sbUser){
-            (async()=>{
-              try{
-                if(choice){await sbClient.from('clients').delete().neq('id','00000000-0000-0000-0000-000000000000');}
-                const rows=allClients.map(c=>toDbRow(c));
-                for(let i=0;i<rows.length;i+=50){await sbClient.from('clients').insert(rows.slice(i,i+50));}
-                const refreshed=await loadClients();
-                if(refreshed)ss({data:refreshed});
-              }catch(e){console.error('Supabase import error:',e);}
-            })();
-          }
-          setTimeout(()=>alert(
-            '✅ Importação concluída!\n\n' +
-            sheetSummary.join('\n') +
-            '\n\nTotal: ' + allClients.length + ' clientes ' +
-            (choice ? 'substituídos' : 'adicionados') + '.'
-          ),100);
+          ss({data:allClients});
+          setTimeout(()=>alert('✅ Importação concluída!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes'),100);
         }catch(err){alert('Erro ao importar: '+err.message);}
       };
       reader.readAsBinaryString(file);
@@ -809,8 +779,6 @@ function updF(k,v){
   const yr=mo*(Number(form.months)||0);
   form.mo=mo;form.yr=yr;
   ST.drawer={...ST.drawer,form};
-  // Re-render when status changes so cancel reason section appears/disappears
-  if(k==='status'){render();return;}
   const em=document.getElementById('calcMo');const ey=document.getElementById('calcYr');
   if(em)em.textContent=fmt$(mo);if(ey)ey.textContent=fmt$(yr);
 }
