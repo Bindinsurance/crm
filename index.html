@@ -29,7 +29,7 @@ input,select,textarea,button{font-family:inherit}
 <script>
 
 // ===== BUILD MARKER =====
-const CRM_BUILD = '2026-05-02-bugfix-v4-year-filter-on-totals';
+const CRM_BUILD = '2026-05-02-bugfix-v5-year-filter-tolerant-empty';
 console.log('%c[CRM] Build:', 'color:#10b981;font-weight:bold', CRM_BUILD);
 
 // ===== SUPABASE CONFIG =====
@@ -304,12 +304,14 @@ function rDash(){
   const selYear=ST.dashYear||String(new Date().getFullYear());
   const inSelYear=c=>{
     if((c.services||[]).includes('car')){
-      // Carro: filtra por effDateCar (formato MM/DD/YYYY ou similar). Se vazio, inclui.
+      // Carro: filtra por effDateCar; se vazio, inclui (a importação atual deixa esse campo
+      // não-padronizado em muitos registros).
       const ed=String(c.effDateCar||'');
       return ed===''||ed.includes(selYear);
     }
-    // Saúde: filtra por appMonth (formato YYYY-MM)
-    return (c.appMonth||'').startsWith(selYear);
+    // Saúde: filtra por appMonth (YYYY-MM); se vazio, inclui (importação não preenche em todos).
+    const m=String(c.appMonth||'');
+    return m===''||m.startsWith(selYear);
   };
   const active=d.filter(c=>(c.status||'').toLowerCase()==='application');
   const cancelled=d.filter(c=>isCancel(c.status));
