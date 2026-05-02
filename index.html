@@ -29,7 +29,7 @@ input,select,textarea,button{font-family:inherit}
 <script>
 
 // ===== BUILD MARKER =====
-const CRM_BUILD = '2026-05-02-pagination-fix-v2';
+const CRM_BUILD = '2026-05-02-bugfix-v3-actions-search-totals';
 console.log('%c[CRM] Build:', 'color:#10b981;font-weight:bold', CRM_BUILD);
 
 // ===== SUPABASE CONFIG =====
@@ -305,8 +305,10 @@ function rDash(){
   const healthActive=active.filter(c=>(c.services||[]).includes('health'));
   const carActive=active.filter(c=>(c.services||[]).includes('car'));
   const healthMo=healthActive.reduce((s,c)=>s+(Number(c.mo)||0),0);
-  const healthYr=healthActive.reduce((s,c)=>s+(Number(c.yr)||0),0);
-  const carMo=carActive.reduce((s,c)=>s+(Number(c.mo)||0),0);
+  // Saúde Anual = run-rate anual (mensal × 12), não soma do campo `yr` (que é mo×months e varia por contrato)
+  const healthYr=healthMo*12;
+  // Carro Anual = soma de valuePol (prêmio anual da apólice de carro), não `mo` (que é da Saúde)
+  const carMo=carActive.reduce((s,c)=>s+(Number(c.valuePol)||0),0);
   const pendEmail=d.filter(c=>!c.emailRenovEnviado&&(c.status||'').toLowerCase()==='application').length;
   const pendNotif=d.filter(c=>!c.notifUpdateEnviado&&(c.status||'').toLowerCase()==='application').length;
   const byAgent=AGENTS.reduce((acc,a)=>{const ag=d.filter(c=>c.agent===a);acc[a]={total:ag.length,active:ag.filter(c=>(c.status||'').toLowerCase()==='application').length,mo:ag.reduce((s,c)=>s+(Number(c.mo)||0),0)};return acc;},{});
@@ -482,7 +484,7 @@ function rClients(){
         </tr></thead>
         <tbody>${filtered.length===0
           ?`<tr><td colspan="11" style="text-align:center;padding:40px;color:${C.muted}">Nenhum cliente encontrado</td></tr>`
-          :filtered.map(c=>{
+          :filtered.slice(0,200).map(c=>{
             const sc=stCfg(c.status);
             return `<tr class="hr" style="border-bottom:1px solid ${C.border}">
               <td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:7px">${av(c.fn+' '+c.ln,acol(c.agent),25)}<div><div style="font-weight:600;color:${C.text}">${esc(c.fn)} ${esc(c.ln)}</div><div style="color:${C.light};font-size:10px">${esc(c.email)||'—'}</div></div></div></td>
@@ -503,6 +505,7 @@ function rClients(){
           }).join('')}
         </tbody>
       </table>
+      ${filtered.length>200?`<div style="padding:14px 16px;text-align:center;background:#f8fafc;border-top:1px solid ${C.border};font-size:11px;color:${C.muted}">Mostrando os primeiros <b style="color:${C.text}">200</b> de <b style="color:${C.text}">${filtered.length}</b> resultados — use a busca ou filtros para refinar.</div>`:''}
     </div>
   </div></div>`;}
 
@@ -681,18 +684,34 @@ function bindEv(){
   document.getElementById('btnSetup')?.addEventListener('click',()=>ss({showSetup:true}));
   document.getElementById('setupClose')?.addEventListener('click',()=>ss({showSetup:false}));
   document.getElementById('selDashYear')?.addEventListener('change',e=>ss({dashYear:e.target.value}));
-  // Search & filters
-  document.getElementById('srch')?.addEventListener('input',e=>ss({search:e.target.value}));
+  // Search & filters - debounced para digitação fluida
+  const srchEl=document.getElementById('srch');
+  if(srchEl){
+    let _searchTimer=null;
+    srchEl.addEventListener('input',e=>{
+      const v=e.target.value;
+      ST.search=v; // grava o valor imediatamente sem re-render (evita perder foco)
+      if(_searchTimer)clearTimeout(_searchTimer);
+      _searchTimer=setTimeout(()=>{
+        // Re-render só quando o usuário pausa de digitar (220ms)
+        const cursor=srchEl.selectionStart;
+        render();
+        // Re-focar e restaurar cursor após o re-render
+        const newEl=document.getElementById('srch');
+        if(newEl){newEl.focus();try{newEl.setSelectionRange(cursor,cursor);}catch(_){}}
+      },220);
+    });
+  }
   document.getElementById('btnFilter')?.addEventListener('click',()=>ss({showFilters:!ST.showFilters}));
   document.getElementById('btnClearAll')?.addEventListener('click',()=>ss({filters:{}}));
   const fMap={fAgent:'agent',fState:'state',fStatus:'status',fSource:'source',fVisa:'visa',fType:'type',fLang:'language',fService:'service',fCarrier:'carrier',fCounty:'county',fCancelReason:'cancelReason',fConsent:'consent',fEmailRenov:'emailRenovEnviado',fNotifUpdate:'notifUpdateEnviado',fPhone:'phone'};
   Object.entries(fMap).forEach(([id,key])=>document.getElementById(id)?.addEventListener('change',e=>{const filters={...ST.filters};const v=e.target.value;if(!v)delete filters[key];else filters[key]=v;ss({filters});}));
   // Add
   document.getElementById('btnAdd')?.addEventListener('click',()=>ss({drawer:{mode:'add',form:{fn:'',ln:'',email:'',phone:'',language:'Português',city:'',state:'FL',county:'',services:['health'],carrier:'Oscar Insurance Company of Florida',ap:1,an2:0,source:'Renew',status:'Application',visa:'',agent:'Larissa',appMonth:'',consent:'X',months:12,effDate:'',type:'Obamacare',val:28,mo:0,yr:0,renovado:'',cancelReason:'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:'',carCarrier:'Progressive',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'}},drawerTab:'info'}));
-  document.querySelectorAll('.btn-edit').forEach(btn=>{btn.onclick=()=>{const c=ST.data.find(x=>x.id===Number(btn.dataset.id));if(c)ss({drawer:{mode:'edit',client:c,form:{...c}},drawerTab:'info'});};});
-  document.querySelectorAll('.btn-del').forEach(btn=>{btn.onclick=()=>{const c=ST.data.find(x=>x.id===Number(btn.dataset.id));if(c)ss({confirmDel:c});};});
+  document.querySelectorAll('.btn-edit').forEach(btn=>{btn.onclick=()=>{const id=btn.dataset.id;const c=ST.data.find(x=>String(x.id)===String(id));if(c)ss({drawer:{mode:'edit',client:c,form:{...c}},drawerTab:'info'});};});
+  document.querySelectorAll('.btn-del').forEach(btn=>{btn.onclick=()=>{const id=btn.dataset.id;const c=ST.data.find(x=>String(x.id)===String(id));if(c)ss({confirmDel:c});};});
   document.getElementById('delCancel')?.addEventListener('click',()=>ss({confirmDel:null}));
-  document.getElementById('delConfirm')?.addEventListener('click',()=>{const id=ST.confirmDel.id;deleteClient(id);ss({data:ST.data.filter(c=>c.id!==id),confirmDel:null});});
+  document.getElementById('delConfirm')?.addEventListener('click',()=>{const id=ST.confirmDel.id;deleteClient(id);ss({data:ST.data.filter(c=>String(c.id)!==String(id)),confirmDel:null});});
   // Toggle inline
   document.querySelectorAll('.bte').forEach(btn=>{btn.onclick=()=>{const id=btn.dataset.id;const cur=ST.data.find(c=>String(c.id)===String(id));const newVal=!cur?.emailRenovEnviado;toggleField(id,'email_renov_enviado',newVal);ss({data:ST.data.map(c=>String(c.id)===String(id)?{...c,emailRenovEnviado:newVal}:c)});};});
   document.querySelectorAll('.btn-tn').forEach(btn=>{btn.onclick=()=>{const id=btn.dataset.id;const cur=ST.data.find(c=>String(c.id)===String(id));const newVal=!cur?.notifUpdateEnviado;toggleField(id,'notif_update_enviado',newVal);ss({data:ST.data.map(c=>String(c.id)===String(id)?{...c,notifUpdateEnviado:newVal}:c)});};});
