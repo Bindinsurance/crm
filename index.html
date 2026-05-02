@@ -2,6 +2,10 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<!-- BUILD: 2026-05-02T-pagination-fix-v2 -->
 <title>Bind Insurance CRM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -23,6 +27,10 @@ input,select,textarea,button{font-family:inherit}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <div id="app" style="height:100vh"></div>
 <script>
+
+// ===== BUILD MARKER =====
+const CRM_BUILD = '2026-05-02-pagination-fix-v2';
+console.log('%c[CRM] Build:', 'color:#10b981;font-weight:bold', CRM_BUILD);
 
 // ===== SUPABASE CONFIG =====
 const SUPABASE_URL = 'https://lhesgpbzwnchmumhcmpm.supabase.co';
@@ -59,8 +67,22 @@ async function sbLogout() {
 
 async function loadClients() {
   if (!sbClient || !sbUser) return null;
-  const { data, error } = await sbClient.from('clients').select('*').order('created_at', { ascending: false });
-  if (error) { console.error('Load error:', error); return null; }
+  let allData = [];
+  let from = 0;
+  const pageSize = 1000;
+  let pageNum = 0;
+  while (true) {
+    pageNum++;
+    const { data, error } = await sbClient.from('clients').select('*').order('created_at', { ascending: false }).range(from, from + pageSize - 1);
+    if (error) { console.error('[CRM] Load error:', error); return null; }
+    if (!data || data.length === 0) break;
+    console.log(`[CRM] Página ${pageNum}: ${data.length} registros (total acumulado: ${allData.length + data.length})`);
+    allData = allData.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  console.log(`%c[CRM] Total de clientes carregados: ${allData.length}`, 'color:#2563eb;font-weight:bold;font-size:14px');
+  const data = allData;
   return data.map(r => ({
     id: r.id, fn: r.fn||'', ln: r.ln||'', email: r.email||'', phone: r.phone||'',
     language: r.language||'Português', city: r.city||'', state: r.state||'', county: r.county||'',
@@ -777,8 +799,6 @@ function bindEv(){
               await sbClient.from('clients').delete().not('id','is',null);
               const rows=allClients.map(toDbRow);
               for(let i=0;i<rows.length;i+=100){await sbClient.from('clients').insert(rows.slice(i,i+100));}
-              const saved=await loadClients();
-              if(saved&&saved.length>0)ss({data:saved});
               alert('✅ Importação concluída e salva!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes');
             }catch(e){alert('✅ Importação concluída!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes');}})();
           }else{
