@@ -29,7 +29,7 @@ input,select,textarea,button{font-family:inherit}
 <script>
 
 // ===== BUILD MARKER =====
-const CRM_BUILD = '2026-05-02-bugfix-v3-actions-search-totals';
+const CRM_BUILD = '2026-05-02-bugfix-v4-year-filter-on-totals';
 console.log('%c[CRM] Build:', 'color:#10b981;font-weight:bold', CRM_BUILD);
 
 // ===== SUPABASE CONFIG =====
@@ -300,15 +300,27 @@ function rSidebar(){
 // ===== DASHBOARD =====
 function rDash(){
   const d=ST.data;
+  // Ano selecionado no dashboard (default = ano atual). Filtra os totais para casar com a planilha.
+  const selYear=ST.dashYear||String(new Date().getFullYear());
+  const inSelYear=c=>{
+    if((c.services||[]).includes('car')){
+      // Carro: filtra por effDateCar (formato MM/DD/YYYY ou similar). Se vazio, inclui.
+      const ed=String(c.effDateCar||'');
+      return ed===''||ed.includes(selYear);
+    }
+    // Saúde: filtra por appMonth (formato YYYY-MM)
+    return (c.appMonth||'').startsWith(selYear);
+  };
   const active=d.filter(c=>(c.status||'').toLowerCase()==='application');
   const cancelled=d.filter(c=>isCancel(c.status));
-  const healthActive=active.filter(c=>(c.services||[]).includes('health'));
-  const carActive=active.filter(c=>(c.services||[]).includes('car'));
+  const healthActive=active.filter(c=>(c.services||[]).includes('health')&&inSelYear(c));
+  const carActive=active.filter(c=>(c.services||[]).includes('car')&&inSelYear(c));
+  // Saúde: mo (mensal) e yr (anual) vêm direto das colunas V/W da planilha.
   const healthMo=healthActive.reduce((s,c)=>s+(Number(c.mo)||0),0);
-  // Saúde Anual = run-rate anual (mensal × 12), não soma do campo `yr` (que é mo×months e varia por contrato)
-  const healthYr=healthMo*12;
-  // Carro Anual = soma de valuePol (prêmio anual da apólice de carro), não `mo` (que é da Saúde)
-  const carMo=carActive.reduce((s,c)=>s+(Number(c.valuePol)||0),0);
+  const healthYr=healthActive.reduce((s,c)=>s+(Number(c.yr)||0),0);
+  // Carro: o importador grava a "Comission" anual da planilha no campo `mo` (vide upload),
+  // então somar `mo` em carros = total anual de comissão.
+  const carMo=carActive.reduce((s,c)=>s+(Number(c.mo)||0),0);
   const pendEmail=d.filter(c=>!c.emailRenovEnviado&&(c.status||'').toLowerCase()==='application').length;
   const pendNotif=d.filter(c=>!c.notifUpdateEnviado&&(c.status||'').toLowerCase()==='application').length;
   const byAgent=AGENTS.reduce((acc,a)=>{const ag=d.filter(c=>c.agent===a);acc[a]={total:ag.length,active:ag.filter(c=>(c.status||'').toLowerCase()==='application').length,mo:ag.reduce((s,c)=>s+(Number(c.mo)||0),0)};return acc;},{});
@@ -319,8 +331,7 @@ function rDash(){
   cancelled.forEach(c=>{const r=c.cancelReason||'Sem motivo informado';cancelByReason[r]=(cancelByReason[r]||0)+1;});
   const cancelSorted=Object.entries(cancelByReason).sort((a,b)=>b[1]-a[1]);
 
-  // Monthly chart data
-  const selYear=ST.dashYear||String(new Date().getFullYear());
+  // Monthly chart data (selYear já definido no topo da função)
   const years=[...new Set(d.map(c=>(c.appMonth||'').slice(0,4)).filter(y=>y&&y.length===4))].sort().reverse();
   if(!years.includes(selYear)&&years.length)years.unshift(selYear);
 
@@ -352,9 +363,9 @@ function rDash(){
   <!-- KPI row 2: revenue split health / car -->
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:14px">
     ${[
-      {l:'🏥 Saúde Mensal',v:fmt$(healthMo),c:C.blue,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
-      {l:'🏥 Saúde Anual',v:fmt$(healthYr),c:C.blue,i:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'},
-      {l:'🚗 Carro Anual',v:fmt$(carMo),c:C.amber,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
+      {l:`🏥 Saúde Mensal (${selYear})`,v:fmt$(healthMo),c:C.blue,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
+      {l:`🏥 Saúde Anual (${selYear})`,v:fmt$(healthYr),c:C.blue,i:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'},
+      {l:`🚗 Carro Anual (${selYear})`,v:fmt$(carMo),c:C.amber,i:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
     ].map(s=>`<div style="background:${C.card};border-radius:10px;padding:14px 15px;border:1px solid ${C.border}"><div style="width:29px;height:29px;border-radius:7px;background:${s.c}22;display:flex;align-items:center;justify-content:center;color:${s.c};margin-bottom:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${s.i}</svg></div><div style="font-size:20px;font-weight:800;color:${C.text}">${s.v}</div><div style="font-size:10px;color:${C.muted};margin-top:1px">${s.l}</div></div>`).join('')}
   </div>
 
