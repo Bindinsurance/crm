@@ -626,7 +626,7 @@ function bindEv(){
     if(btn){btn.textContent='Entrando...';btn.disabled=true;}
     // Map username to email
     const emailMap={'Eduardo':'eduzanlutti@gmail.com','Larissa':'larissazanlutti@gmail.com','admin':'eduzanlutti@gmail.com'};
-    const email=emailMap[u];
+    const email=u.includes('@')?u:(emailMap[u]||null);
     if(!email){
       const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Usuário não encontrado';}
       if(btn){btn.textContent='Entrar';btn.disabled=false;}return;
@@ -642,7 +642,7 @@ function bindEv(){
     }
     // Load clients from Supabase
     const clients=await loadClients();
-    const userObj=USERS.find(x=>x.u===u)||{u,name:u,color:C.blue};
+    const userObj=USERS.find(x=>x.u===u)||USERS.find(x=>emailMap[x.u]===u)||{u,name:u.split('@')[0],color:C.blue};
     ss({user:userObj,page:'dashboard',data:clients||ST.data});
   };
   document.getElementById('lgbtn')?.addEventListener('click',doLogin);
