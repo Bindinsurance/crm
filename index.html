@@ -731,11 +731,12 @@ function bindEv(){
             if(isCarSheet){
               sheetClients=dataRows.map((r,i)=>{
                 const st=(String(r[3]||'').toLowerCase()==='cancelou'||String(r[3]||'').toLowerCase().includes('cancel'))?'cancel':'Application';
-                return {id:'imp_'+(++counter),fn:String(r[0]||'').trim(),ln:String(r[1]||'').trim(),email:String(r[2]||''),phone:'',language:'Português',city:String(r[4]||''),state:String(r[5]||''),county:'',services:['car'],carrier:'',ap:0,an2:0,source:'',status:st,visa:'',agent:String(r[11]||''),appMonth:'',consent:'',months:0,effDate:'',type:'Carro',val:0,mo:0,yr:0,renovado:String(r[3]||''),cancelReason:st==='cancel'?'A pedido do cliente':'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:String(r[10]||''),carCarrier:String(r[6]||''),policyNum:String(r[7]||''),effDateCar:'',expireDateCar:'',numCars:Number(r[12])||0,deductible:Number(r[13])||0,valuePol:Number(r[14])||0,carSource:String(r[10]||''),carType:String(r[17]||'personal')};
+                return {id:'imp_'+(++counter),fn:String(r[0]||'').trim(),ln:String(r[1]||'').trim(),email:String(r[2]||''),phone:'',language:'Português',city:String(r[4]||''),state:String(r[5]||''),county:'',services:['car'],carrier:'',ap:0,an2:0,source:String(r[10]||''),status:st,visa:'',agent:String(r[11]||''),appMonth:'',consent:'',months:0,effDate:'',type:'Carro',val:Number(r[15])||0,mo:Number(r[15])||0,yr:(Number(r[15])||0)*12,renovado:String(r[3]||''),cancelReason:st==='cancel'?String(r[3]||''):'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:String(r[10]||''),carCarrier:String(r[6]||''),policyNum:String(r[7]||''),effDateCar:String(r[8]||''),expireDateCar:String(r[9]||''),numCars:Number(r[12])||0,deductible:Number(r[13])||0,valuePol:Number(r[14])||0,carSource:String(r[10]||''),carType:String(r[17]||'personal')};
               });
             } else {
-              const has26=hdr.some(h=>String(h||'').toLowerCase().includes('phone'));
-              const has25=hdr.some(h=>String(h||'')===('Enviado EMAIL'))&&!has26;
+              const firstRow=dataRows[0]||[];
+              const has26=hdr.some(h=>String(h||'').toLowerCase().includes('phone'))||/^\+?[\d\s\(\)\-\.]{7,}$/.test(String(firstRow[3]||'').trim())||(firstRow.filter(v=>v!==undefined&&v!=='').length>=18);
+              const has25=!has26&&(hdr.some(h=>String(h||'')==='Enviado EMAIL')||(firstRow.filter(v=>v!==undefined&&v!=='').length>=15));
               sheetClients=dataRows.map((r,i)=>{
                 const fn=String(r[0]||'').trim(),ln=String(r[1]||'').trim(),email=String(r[2]||'');
                 const phone=has26?String(r[3]||''):'';
@@ -743,15 +744,15 @@ function bindEv(){
                 const emailRenov=has26?(r[5]==='X'||r[5]==='x'):has25?(r[3]==='X'||r[3]==='x'):false;
                 const renovado=has26?String(r[6]||''):has25?String(r[4]||''):'';
                 const b=has26?7:has25?5:3;
-                const rawStatus=String(r[b+8]||'');
+                const rawStatus=String(r[b+7]||'');
                 const isCancelled=rawStatus.toLowerCase().includes('cancel')||rawStatus.toLowerCase()==='cancelou';
-                const status=isCancelled?'cancel':(rawStatus.toLowerCase()==='application'||rawStatus.toLowerCase()==='new'||rawStatus.toLowerCase()==='cliente'?'Application':rawStatus);
-                const yr=sheetName.includes('2024')?'2024':sheetName.includes('2025')?'2025':sheetName.includes('2026')?'2026':'';
-                const appMonthRaw=r[b+12];
+                const knownActive=['application','new','cliente','ativo','active','aplicação'];
+                const status=isCancelled?'cancel':(knownActive.includes(rawStatus.toLowerCase())?'Application':rawStatus);
+                const appMonthRaw=r[b+10];
                 let appMonth='';
                 if(appMonthRaw instanceof Date){appMonth=appMonthRaw.toISOString().slice(0,7);}
                 else if(appMonthRaw){appMonth=String(appMonthRaw).slice(0,7);}
-                return {id:'imp_'+(++counter),fn,ln,email,phone,language:lang||'Português',city:String(r[b]||''),state:String(r[b+1]||''),county:String(r[b+2]||''),services:['health'],carrier:String(r[b+3]||''),ap:Number(r[b+4])||0,an2:Number(r[b+5])||0,source:String(r[b+6]||''),status,visa:String(r[b+9]||''),agent:String(r[b+10]||''),appMonth,consent:String(r[b+12+1]||''),months:Number(r[b+14])||0,effDate:'',type:String(r[b+16]||'Obamacare'),val:Number(r[b+15])||0,mo:(Number(r[b+4])||0)*(Number(r[b+15])||0),yr:(Number(r[b+4])||0)*(Number(r[b+15])||0)*(Number(r[b+14])||12),renovado,cancelReason:isCancelled?rawStatus:'',emailRenovEnviado:emailRenov,notifUpdateEnviado:false,obs:'',carCarrier:'',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'};
+                return {id:'imp_'+(++counter),fn,ln,email,phone,language:lang||'Português',city:String(r[b]||''),state:String(r[b+1]||''),county:String(r[b+2]||''),services:['health'],carrier:String(r[b+3]||''),ap:Number(r[b+4])||0,an2:Number(r[b+5])||0,source:String(r[b+6]||''),status,visa:String(r[b+8]||''),agent:String(r[b+9]||''),appMonth,consent:String(r[b+11]||''),months:Number(r[b+12])||0,effDate:'',type:String(r[b+16]||'Obamacare'),val:Number(r[b+13])||0,mo:(Number(r[b+4])||0)*(Number(r[b+13])||0),yr:(Number(r[b+4])||0)*(Number(r[b+13])||0)*(Number(r[b+12])||12),renovado,cancelReason:isCancelled?rawStatus:'',emailRenovEnviado:emailRenov,notifUpdateEnviado:false,obs:'',carCarrier:'',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'};
               });
             }
 
@@ -774,6 +775,7 @@ function bindEv(){
 function updF(k,v){
   if(!ST.drawer)return;
   const form={...ST.drawer.form,[k]:v};
+  if(k==='status'){ST.drawer={...ST.drawer,form};render();return;}
   const mo=(Number(form.ap)||0)*(Number(form.val)||0);
   const yr=mo*(Number(form.months)||0);
   form.mo=mo;form.yr=yr;
