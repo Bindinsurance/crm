@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- BUILD: 2026-05-02T-pagination-fix-v2 -->
+<!-- BUILD: 2026-05-02T-footer-row-fix-v4 -->
 <title>Bind Insurance CRM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -29,7 +29,7 @@ input,select,textarea,button{font-family:inherit}
 <script>
 
 // ===== BUILD MARKER =====
-const CRM_BUILD = '2026-05-02-bugfix-v6-totals-direct-sum';
+const CRM_BUILD = '2026-05-02-bugfix-v8-footer-row-fix';
 console.log('%c[CRM] Build:', 'color:#10b981;font-weight:bold', CRM_BUILD);
 
 // ===== SUPABASE CONFIG =====
@@ -771,10 +771,13 @@ function bindEv(){
             const ws=wb.Sheets[sheetName];
             const rows=XLSX.utils.sheet_to_json(ws,{header:1});
             const hdr=rows[1]||[];
-            if(!hdr.some(h=>h))return; // skip empty sheets
+            const hdr0=rows[0]||[]; // first row has individual column headers (hdr/rows[1] has the merged B2:W2 cell)
+            if(!hdr.some(h=>h)&&!hdr0.some(h=>h))return; // skip empty sheets
 
-            const isCar=hdr.some(h=>String(h||'').toLowerCase().includes('policy number')||String(h||'').toLowerCase().includes('number of cars')||String(h||'').toLowerCase().includes('carrie')&&String(h||'').toLowerCase().includes('effective'));
-            const isCarSheet=sheetName.toLowerCase().includes('car')||isCar;
+            // Check both header rows for car sheet markers
+            const allHdrVals=[...hdr,...hdr0];
+            const isCar=allHdrVals.some(h=>String(h||'').toLowerCase().includes('policy number')||String(h||'').toLowerCase().includes('number of cars')||(String(h||'').toLowerCase().includes('carrie')&&String(h||'').toLowerCase().includes('effective')));
+            const isCarSheet=sheetName.toLowerCase().includes('car')||sheetName.toLowerCase().includes('carro')||sheetName.toLowerCase().includes('auto')||isCar;
             const dataRows=rows.slice(2).filter(r=>r[0]&&String(r[0]).trim()!=='');
 
             if(dataRows.length===0)return;
@@ -782,14 +785,29 @@ function bindEv(){
             let sheetClients=[];
 
             if(isCarSheet){
+              // Find commission column by searching headers (default r[15])
+              let carCommCol=15;
+              allHdrVals.forEach((v,ci)=>{const s=String(v||'').toLowerCase().trim();if(s.includes('commission')&&ci>0&&ci<20)carCommCol=ci;});
               sheetClients=dataRows.map((r,i)=>{
                 const st=(String(r[3]||'').toLowerCase()==='cancelou'||String(r[3]||'').toLowerCase().includes('cancel'))?'cancel':'Application';
-                return {id:'imp_'+(++counter),fn:String(r[0]||'').trim(),ln:String(r[1]||'').trim(),email:String(r[2]||''),phone:'',language:'Português',city:String(r[4]||''),state:String(r[5]||''),county:'',services:['car'],carrier:'',ap:0,an2:0,source:String(r[10]||''),status:st,visa:'',agent:String(r[11]||''),appMonth:'',consent:'',months:0,effDate:'',type:'Carro',val:Number(r[15])||0,mo:Number(r[15])||0,yr:(Number(r[15])||0)*12,renovado:String(r[3]||''),cancelReason:st==='cancel'?String(r[3]||''):'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:String(r[10]||''),carCarrier:String(r[6]||''),policyNum:String(r[7]||''),effDateCar:String(r[8]||''),expireDateCar:String(r[9]||''),numCars:Number(r[12])||0,deductible:Number(r[13])||0,valuePol:Number(r[14])||0,carSource:String(r[10]||''),carType:String(r[17]||'personal')};
+                const comm=Number(r[carCommCol])||0;
+                return {id:'imp_'+(++counter),fn:String(r[0]||'').trim(),ln:String(r[1]||'').trim(),email:String(r[2]||''),phone:'',language:'Português',city:String(r[4]||''),state:String(r[5]||''),county:'',services:['car'],carrier:'',ap:0,an2:0,source:String(r[10]||''),status:st,visa:'',agent:String(r[11]||''),appMonth:'',consent:'',months:0,effDate:'',type:'Carro',val:comm,mo:comm,yr:comm*12,renovado:String(r[3]||''),cancelReason:st==='cancel'?String(r[3]||''):'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:String(r[10]||''),carCarrier:String(r[6]||''),policyNum:String(r[7]||''),effDateCar:String(r[8]||''),expireDateCar:String(r[9]||''),numCars:Number(r[12])||0,deductible:Number(r[13])||0,valuePol:Number(r[14])||0,carSource:String(r[10]||''),carType:String(r[17]||'personal')};
               });
             } else {
+              // Find Montly/Annualy column indices by searching BOTH header rows
+              // rows[0] has individual column names; rows[1] has the merged B2:W2 cell (empty for most cols)
+              let moColIdx=-1,yrColIdx=-1;
+              [hdr0,hdr].forEach(h=>{
+                h.forEach((v,ci)=>{
+                  const s=String(v||'').toLowerCase().trim();
+                  if(moColIdx<0&&(s==='montly'||s==='monthly'||s==='mo'))moColIdx=ci;
+                  if(yrColIdx<0&&(s==='annualy'||s==='annually'||s==='annual'||s==='yr'))yrColIdx=ci;
+                });
+              });
+              // Fix has26 detection: check rows[0] (hdr0) for 'phone' since rows[1] has merged cell
               const firstRow=dataRows[0]||[];
-              const has26=hdr.some(h=>String(h||'').toLowerCase().includes('phone'))||/^\+?[\d\s\(\)\-\.]{7,}$/.test(String(firstRow[3]||'').trim())||(firstRow.filter(v=>v!==undefined&&v!=='').length>=18);
-              const has25=!has26&&(hdr.some(h=>String(h||'')==='Enviado EMAIL')||(firstRow.filter(v=>v!==undefined&&v!=='').length>=15));
+              const has26=hdr0.some(h=>String(h||'').toLowerCase().includes('phone'))||hdr.some(h=>String(h||'').toLowerCase().includes('phone'))||/^\+?[\d\s\(\)\-\.]{7,}$/.test(String(firstRow[3]||'').trim())||(firstRow.filter(v=>v!==undefined&&v!=='').length>=18);
+              const has25=!has26&&(hdr0.some(h=>String(h||'')==='Enviado EMAIL')||hdr.some(h=>String(h||'')==='Enviado EMAIL')||(firstRow.filter(v=>v!==undefined&&v!=='').length>=15));
               sheetClients=dataRows.map((r,i)=>{
                 const fn=String(r[0]||'').trim(),ln=String(r[1]||'').trim(),email=String(r[2]||'');
                 const phone=has26?String(r[3]||''):'';
@@ -805,11 +823,15 @@ function bindEv(){
                 let appMonth='';
                 if(appMonthRaw instanceof Date){appMonth=appMonthRaw.toISOString().slice(0,7);}
                 else if(appMonthRaw){appMonth=String(appMonthRaw).slice(0,7);}
-                return {id:'imp_'+(++counter),fn,ln,email,phone,language:lang||'Português',city:String(r[b]||''),state:String(r[b+1]||''),county:String(r[b+2]||''),services:['health'],carrier:String(r[b+3]||''),ap:Number(r[b+4])||0,an2:Number(r[b+5])||0,source:String(r[b+6]||''),status,visa:String(r[b+8]||''),agent:String(r[b+9]||''),appMonth,consent:String(r[b+11]||''),months:Number(r[b+12])||0,effDate:'',type:String(r[b+16]||'Obamacare'),val:Number(r[b+13])||0,mo:Number(r[b+14])||0,yr:Number(r[b+15])||0,renovado,cancelReason:isActive?'':rawStatus,emailRenovEnviado:emailRenov,notifUpdateEnviado:false,obs:'',carCarrier:'',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'};
+                // Use directly-found column indices for mo/yr if available (bypass b-offset which can be wrong)
+                const moVal=moColIdx>=0?(Number(r[moColIdx])||0):(Number(r[b+14])||0);
+                const yrVal=yrColIdx>=0?(Number(r[yrColIdx])||0):(Number(r[b+15])||0);
+                return {id:'imp_'+(++counter),fn,ln,email,phone,language:lang||'Português',city:String(r[b]||''),state:String(r[b+1]||''),county:String(r[b+2]||''),services:['health'],carrier:String(r[b+3]||''),ap:Number(r[b+4])||0,an2:Number(r[b+5])||0,source:String(r[b+6]||''),status,visa:String(r[b+8]||''),agent:String(r[b+9]||''),appMonth,consent:String(r[b+11]||''),months:Number(r[b+12])||0,effDate:'',type:String(r[b+16]||'Obamacare'),val:Number(r[b+13])||0,mo:moVal,yr:yrVal,renovado,cancelReason:isActive?'':rawStatus,emailRenovEnviado:emailRenov,notifUpdateEnviado:false,obs:'',carCarrier:'',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'};
               });
             }
 
-            sheetClients=sheetClients.filter(c=>c.fn&&c.fn.trim()!=='');
+            // Exclude footer/subtotal rows: rows where fn is purely numeric (e.g. "11" = SUBTOTAL count row)
+            sheetClients=sheetClients.filter(c=>c.fn&&c.fn.trim()!==''&&!/^\d+(\.\d+)?$/.test(c.fn.trim()));
             allClients=allClients.concat(sheetClients);
             sheetSummary.push(`• ${sheetName}: ${sheetClients.length} clientes (${isCarSheet?'Carro':'Saúde'})`);
           });
