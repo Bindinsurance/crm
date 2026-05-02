@@ -247,7 +247,6 @@ function rLogin(){return `<div style="min-height:100vh;display:flex;align-items:
     <h1 style="font-size:21px;font-weight:800;color:${C.text}">Bind Insurance</h1>
     <p style="font-size:11px;color:${C.muted};margin-top:3px">Sistema de Gestão de Clientes</p>
   </div>
-  <div style="background:${C.blueL};border-radius:7px;padding:8px 12px;margin-bottom:16px;font-size:11px;color:${C.blue}"><strong>Demo:</strong> Eduardo/edu2024 · Larissa/lar2024 · admin/admin2024</div>
   <div style="display:flex;flex-direction:column;gap:11px">
     <div><label style="display:block;font-size:11px;font-weight:600;color:${C.text};margin-bottom:4px">Usuário</label><input id="lgu" placeholder="Usuário" style="width:100%;padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:13px;outline:none"></div>
     <div><label style="display:block;font-size:11px;font-weight:600;color:${C.text};margin-bottom:4px">Senha</label><input id="lgp" type="password" placeholder="Senha" style="width:100%;padding:9px 12px;border:1.5px solid ${C.border};border-radius:7px;font-size:13px;outline:none"></div>
@@ -626,7 +625,7 @@ function bindEv(){
     const btn=document.getElementById('lgbtn');
     if(btn){btn.textContent='Entrando...';btn.disabled=true;}
     // Map username to email
-    const emailMap={'Eduardo':'eduardo@bindinsurance.com','Larissa':'larissa@bindinsurance.com','admin':'admin@bindinsurance.com'};
+    const emailMap={'Eduardo':'eduzanlutti@gmail.com','Larissa':'larissazanlutti@gmail.com','admin':'eduzanlutti@gmail.com'};
     const email=emailMap[u];
     if(!email){
       const e=document.getElementById('lgerr');if(e){e.style.display='block';e.textContent='Usuário não encontrado';}
