@@ -5,7 +5,10 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- BUILD: 2026-05-02T-footer-row-fix-v4 -->
+<!-- SECURITY HEADERS -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://lhesgpbzwnchmumhcmpm.supabase.co wss://lhesgpbzwnchmumhcmpm.supabase.co; img-src 'self' data: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- BUILD: 2026-05-04-security-v10 -->
 <title>Bind Insurance CRM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -29,7 +32,7 @@ input,select,textarea,button{font-family:inherit}
 <script>
 
 // ===== BUILD MARKER =====
-const CRM_BUILD = '2026-05-02-bugfix-v8-footer-row-fix';
+const CRM_BUILD = '2026-05-02-bugfix-v9-filter-btn';
 console.log('%c[CRM] Build:', 'color:#10b981;font-weight:bold', CRM_BUILD);
 
 // ===== SUPABASE CONFIG =====
@@ -246,7 +249,6 @@ function getFiltered(){
     if(f.consent){const has=c.consent==='X'||c.consent==='x';if(f.consent==='yes'&&!has)return false;if(f.consent==='no'&&has)return false;}
     if(f.emailRenovEnviado!==undefined&&f.emailRenovEnviado!==''){if(Boolean(c.emailRenovEnviado)!==Boolean(f.emailRenovEnviado==='true'))return false;}
     if(f.notifUpdateEnviado!==undefined&&f.notifUpdateEnviado!==''){if(Boolean(c.notifUpdateEnviado)!==Boolean(f.notifUpdateEnviado==='true'))return false;}
-    if(f.phone){if(!c.phone)return false;}
     return true;
   });
 }
@@ -474,7 +476,7 @@ function rClients(){
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${fYN('fEmailRenov','emailRenovEnviado','📧 Email Renovação')}
         ${fYN('fNotifUpdate','notifUpdateEnviado','📲 Notif. Update')}
-        <div><label style="display:block;font-size:9px;font-weight:700;color:${C.muted};margin-bottom:3px;text-transform:uppercase">📞 Telefone</label><select id="fPhone" style="${iS}"><option value="">Todos</option><option value="yes" ${ST.filters.phone==='yes'?'selected':''}>✅ Com telefone</option></select></div>
+        <div style="display:flex;align-items:flex-end"><button id="btnClearFilters" class="btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:${C.redL};border:1.5px solid ${C.red};border-radius:7px;font-size:11px;font-weight:700;color:${C.red};cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Limpar Filtros</button></div>
       </div>
     </div>`:''}
   </div>
@@ -707,7 +709,8 @@ function bindEv(){
   }
   document.getElementById('btnFilter')?.addEventListener('click',()=>ss({showFilters:!ST.showFilters}));
   document.getElementById('btnClearAll')?.addEventListener('click',()=>ss({filters:{}}));
-  const fMap={fAgent:'agent',fState:'state',fStatus:'status',fSource:'source',fVisa:'visa',fType:'type',fLang:'language',fService:'service',fCarrier:'carrier',fCounty:'county',fCancelReason:'cancelReason',fConsent:'consent',fEmailRenov:'emailRenovEnviado',fNotifUpdate:'notifUpdateEnviado',fPhone:'phone'};
+  const fMap={fAgent:'agent',fState:'state',fStatus:'status',fSource:'source',fVisa:'visa',fType:'type',fLang:'language',fService:'service',fCarrier:'carrier',fCounty:'county',fCancelReason:'cancelReason',fConsent:'consent',fEmailRenov:'emailRenovEnviado',fNotifUpdate:'notifUpdateEnviado'};
+  document.getElementById('btnClearFilters')?.addEventListener('click',()=>ss({filters:{}}));
   Object.entries(fMap).forEach(([id,key])=>document.getElementById(id)?.addEventListener('change',e=>{const filters={...ST.filters};const v=e.target.value;if(!v)delete filters[key];else filters[key]=v;ss({filters});}));
   // Add
   document.getElementById('btnAdd')?.addEventListener('click',()=>ss({drawer:{mode:'add',form:{fn:'',ln:'',email:'',phone:'',language:'Português',city:'',state:'FL',county:'',services:['health'],carrier:'Oscar Insurance Company of Florida',ap:1,an2:0,source:'Renew',status:'Application',visa:'',agent:'Larissa',appMonth:'',consent:'X',months:12,effDate:'',type:'Obamacare',val:28,mo:0,yr:0,renovado:'',cancelReason:'',emailRenovEnviado:false,notifUpdateEnviado:false,obs:'',carCarrier:'Progressive',policyNum:'',effDateCar:'',expireDateCar:'',numCars:0,deductible:0,valuePol:0,carSource:'',carType:'personal'}},drawerTab:'info'}));
