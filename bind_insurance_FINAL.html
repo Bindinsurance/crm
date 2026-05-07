@@ -8,7 +8,7 @@
 <!-- SECURITY HEADERS -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://lhesgpbzwnchmumhcmpm.supabase.co wss://lhesgpbzwnchmumhcmpm.supabase.co; img-src 'self' data: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<!-- BUILD: 2026-05-04-security-v10 -->
+<!-- BUILD: 2026-05-07-merge-v2 -->
 <title>Bind Insurance CRM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -867,18 +867,33 @@ function bindEv(){
                 return !existingKeys.has(key);
               });
               const alreadyExisted=allClients.length-newClients.length;
+              let inserted=0,failed=0,failedNames=[];
               if(newClients.length>0){
                 const dbRows=newClients.map(toDbRow);
-                for(let i=0;i<dbRows.length;i+=100){await sbClient.from('clients').insert(dbRows.slice(i,i+100));}
+                // Try in batches of 100; if a batch fails, retry one by one to save every valid record
+                for(let i=0;i<dbRows.length;i+=100){
+                  const batch=dbRows.slice(i,i+100);
+                  const {error:batchErr}=await sbClient.from('clients').insert(batch);
+                  if(!batchErr){inserted+=batch.length;}
+                  else{
+                    // Batch failed — insert one by one to isolate the problem
+                    for(let j=0;j<batch.length;j++){
+                      const {error:rowErr}=await sbClient.from('clients').insert([batch[j]]);
+                      if(!rowErr){inserted++;}
+                      else{failed++;failedNames.push(`${newClients[i+j].fn} ${newClients[i+j].ln}: ${rowErr.message}`);}
+                    }
+                  }
+                }
               }
               // Reload all clients from DB so UI shows full list (existing + new)
               const reloaded=await loadClients();
               if(reloaded)ss({data:reloaded});
-              let msg='✅ Importação (merge inteligente) concluída!\n\n'+sheetSummary.join('\n')+'\n\n';
+              let msg='✅ Importação (merge inteligente) v2 concluída!\n\n'+sheetSummary.join('\n')+'\n\n';
               msg+='📊 Resultado:\n';
-              msg+='• '+newClients.length+' novo(s) cliente(s) adicionado(s)\n';
+              msg+='• '+inserted+' novo(s) cliente(s) adicionado(s)\n';
               msg+='• '+alreadyExisted+' já existia(m) no banco — não duplicado(s)';
-              if(blankNames>0)msg+='\n\n⚠️ '+blankNames+' registro(s) com nome ou sobrenome em branco foram incluídos marcados como "(Sem Nome)" — verifique e corrija no CRM.';
+              if(failed>0)msg+='\n\n⚠️ '+failed+' registro(s) com erro ao salvar:\n'+failedNames.slice(0,5).join('\n')+(failedNames.length>5?'\n...e mais '+(failedNames.length-5):'');
+              if(blankNames>0)msg+='\n\n⚠️ '+blankNames+' registro(s) com nome em branco marcados como "(Sem Nome)".';
               alert(msg);
             }catch(e){alert('Erro no merge: '+e.message);}})();
           }else{

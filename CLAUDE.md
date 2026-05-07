@@ -115,6 +115,7 @@ O Vercel detecta o push e faz redeploy automático em ~30 segundos.
 
 | Data | Mudança |
 |---|---|
+| 2026-05-07 | Import v2: insert registro a registro com fallback — lotes de 100 falham graciosamente; nomes de registros com erro são exibidos ao usuário |
 | 2026-05-07 | Merge inteligente no import; fix campos em branco (Sem Nome); deploy automático; CLAUDE.md + README + PRD |
 | Sessão anterior | Deploy no Vercel; vercel.json com headers de segurança; fix paginação de clientes |
 | Sessão anterior | Busca corrigida; mapeamento de colunas Excel; suporte planilha carro |
