@@ -8,7 +8,7 @@
 <!-- SECURITY HEADERS -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://lhesgpbzwnchmumhcmpm.supabase.co wss://lhesgpbzwnchmumhcmpm.supabase.co; img-src 'self' data: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<!-- BUILD: 2026-05-07-merge-v2 -->
+<!-- BUILD: 2026-05-07-merge-v3 -->
 <title>Bind Insurance CRM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -103,18 +103,27 @@ async function loadClients() {
 }
 
 function toDbRow(c) {
+  // INTEGER columns must be whole numbers — Math.round prevents Supabase batch rejection
+  const ri = v => Math.round(Number(v)||0);
+  // NUMERIC columns accept decimals
+  const rn = v => Number(v)||0;
   return {
-    fn: c.fn, ln: c.ln, email: c.email, phone: c.phone, language: c.language,
-    city: c.city, state: c.state, county: c.county, services: c.services,
-    carrier: c.carrier, ap: c.ap, an2: c.an2, source: c.source, status: c.status,
-    visa: c.visa, agent: c.agent, app_month: c.appMonth, consent: c.consent,
-    months: c.months, eff_date: c.effDate, type: c.type, val: c.val, mo: c.mo, yr: c.yr,
-    renovado: c.renovado, cancel_reason: c.cancelReason,
-    email_renov_enviado: c.emailRenovEnviado, notif_update_enviado: c.notifUpdateEnviado,
-    obs: c.obs, car_carrier: c.carCarrier, policy_num: c.policyNum,
-    eff_date_car: c.effDateCar, expire_date_car: c.expireDateCar,
-    num_cars: c.numCars, deductible: c.deductible, value_pol: c.valuePol,
-    car_source: c.carSource, car_type: c.carType
+    fn: c.fn||null, ln: c.ln||null, email: c.email||null, phone: c.phone||null,
+    language: c.language||null, city: c.city||null, state: c.state||null,
+    county: c.county||null, services: c.services||[],
+    carrier: c.carrier||null, ap: ri(c.ap), an2: ri(c.an2),
+    source: c.source||null, status: c.status||null,
+    visa: c.visa||null, agent: c.agent||null, app_month: c.appMonth||null,
+    consent: c.consent||null, months: ri(c.months),
+    eff_date: c.effDate||null, type: c.type||null,
+    val: rn(c.val), mo: rn(c.mo), yr: rn(c.yr),
+    renovado: c.renovado||null, cancel_reason: c.cancelReason||null,
+    email_renov_enviado: !!c.emailRenovEnviado,
+    notif_update_enviado: !!c.notifUpdateEnviado,
+    obs: c.obs||null, car_carrier: c.carCarrier||null, policy_num: c.policyNum||null,
+    eff_date_car: c.effDateCar||null, expire_date_car: c.expireDateCar||null,
+    num_cars: ri(c.numCars), deductible: rn(c.deductible), value_pol: rn(c.valuePol),
+    car_source: c.carSource||null, car_type: c.carType||null
   };
 }
 
