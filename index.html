@@ -871,7 +871,7 @@ function bindEv(){
               }
               // Build dedup key: fn|ln (lowercased, trimmed)
               const existingKeys=new Set(existing.map(r=>`${(r.fn||'').trim().toLowerCase()}|${(r.ln||'').trim().toLowerCase()}`));
-              const newClients=allClients.filter(c=>{
+              const newClients=allClients.filter(c=>{if(!(c.fn||'').trim()&&!(c.ln||'').trim())return false;
                 const key=`${(c.fn||'').trim().toLowerCase()}|${(c.ln||'').trim().toLowerCase()}`;
                 return !existingKeys.has(key);
               });

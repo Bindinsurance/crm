@@ -157,3 +157,23 @@ O Vercel serve o `index.html` na URL raiz (`/`). Como o `deploy.js` nunca inclu�
 - `deploy.js` atualizado para sempre publicar `bind_insurance_FINAL.html` como `index.html` automaticamente
 
 **Pasta do projeto movida:** De `Downloads\App_Clientes_Bind` para `OneDrive\Personal Vault\App_Clientes_Bind`
+
+
+---
+
+## Sessão 09/05/2026 — Correção: Valor Carro Anual duplicado no dashboard
+
+**Problema:** Dashboard exibia "Carro Anual" = $19,781.58 mas planilha mostrava $9,890.79 (exatamente metade).
+
+**Causa raiz:** A linha de TOTAIS da planilha Excel foi importada como se fosse um cliente real.
+- Registro fantasma: fn="(Sem Nome)", ln="(Sem Sobrenome)", services=["car"], mo=9890.79
+- O CRM somava os 50 clientes reais ($9,890.79) + essa linha fantasma ($9,890.79) = $19,781.58
+
+**Solução aplicada (09/05/2026):**
+1. Deletado o registro fantasma do Supabase: id=`e1d44a63-3aec-421a-8870-f5e9857e24e9`
+2. Adicionado filtro no código de importação para ignorar linhas sem nome:
+   - Em `newClients.filter(c=>{` adicionado: `if(!(c.fn||'').trim()&&!(c.ln||'').trim())return false;`
+3. Resultado verificado: 50 clientes reais, soma = $9,890.79 ✅
+4. Arquivo salvo e deploy executado via DEPLOY_NOW.bat
+
+**Lição:** A planilha Excel contém uma linha de totais (SUM) no final. O importador agora ignora linhas onde firstName E lastName estão ambos vazios/nulos.
