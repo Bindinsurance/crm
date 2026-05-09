@@ -195,3 +195,21 @@ O Vercel serve o `index.html` na URL raiz (`/`). Como o `deploy.js` nunca inclu�
 **Total changes**: 9 replacements, file grew from 94273 → 94469 characters.
 **Script used**: `fix_filters.js` (in Claude outputs folder) + `RUN_FIX.bat`
 **Deployed via**: DEPLOY_NOW.bat → GitHub Bindinsurance/crm main → Vercel auto-deploy
+
+---
+
+## [09/05/2026] Fix: VISA_OPTS sincronizado com planilha Base para o APP (commit ac0723c0 — 17:09)
+
+**Problem**: Opções de visto no filtro do app estavam incompletas — E2, L1 e Application existiam na planilha mas não apareciam como opção de filtro no CRM.
+**Root cause**: `VISA_OPTS` definido manualmente no código sem ser conferido contra os dados reais da planilha.
+
+**Diagnóstico**: Script `read_visa_opts.js` leu o xlsx via node e extraiu 14 valores únicos da coluna visa (sheet "2026 Health"). Comparados com o array `VISA_OPTS` no HTML.
+
+**Planilha contém** (valores únicos case-insensitive): `application, citizen, E2, green card, I-94, I797, L1, O, R1, student, work permit`
+
+**Antes**: `['Student','Green Card','Work Permit','I797','I-94','Citizen','797C','O','R1']`
+**Depois**: `['Application','Citizen','E2','Green Card','I-94','I797','L1','O','R1','Student','Work Permit','797C']`
+
+**Adicionados**: E2, L1, Application. **Mantido**: 797C (para não quebrar registros existentes).
+**Arquivo alterado**: `bind_insurance_FINAL.html` linha 171 — `const VISA_OPTS`
+**Deployed via**: DEPLOY_VISA_FIX.bat → GitHub Bindinsurance/crm main → Vercel auto-deploy
