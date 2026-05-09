@@ -130,3 +130,30 @@ O Vercel detecta o push e faz redeploy automático em ~30 segundos.
 - O banco usa a tabela `clients` (inglês), não `clientes`.
 - O campo `fn` = primeiro nome, `ln` = sobrenome.
 - Sempre manter este `CLAUDE.md` atualizado com cada mudança relevante.
+
+---
+
+## Histórico de Problemas e Soluções
+
+### [2026-05-09] CAUSA RAIZ: Vercel servia código antigo apesar dos deploys
+
+**Problema:** Após cada deploy, o app no Vercel continuava mostrando dados antigos (1973 clientes / $105k) e não encontrava clientes como "Justin Mullins" que existiam na planilha.
+
+**Causa raiz identificada:** O repositório GitHub continha DOIS arquivos HTML:
+- `bind_insurance_FINAL.html` — código novo (atualizado em cada deploy)
+- `index.html` — código ANTIGO (nunca atualizado)
+
+O Vercel serve o `index.html` na URL raiz (`/`). Como o `deploy.js` nunca incluía `index.html` na lista de arquivos, todos os deploys anteriores atualizavam apenas `bind_insurance_FINAL.html`, enquanto o `index.html` antigo continuava sendo servido aos usuários.
+
+**Solução aplicada (09/05/2026):**
+1. Adicionado ao `deploy.js` na lista FILES: `{ local: 'bind_insurance_FINAL.html', remote: 'index.html' }`
+2. Executado deploy — commit `04386616` — 6 arquivos publicados
+3. Verificado: Vercel agora serve `BUILD: 2026-05-07-merge-v3` na URL raiz ✅
+
+**Outras correções aplicadas na mesma sessão:**
+- `toDbRow()`: campos INTEGER (`ap`, `an2`, `months`, `num_cars`) usam `Math.round()` para evitar rejeição silenciosa de batch no Supabase
+- Importação: registros sem nome recebem `(Sem Nome)` / `(Sem Sobrenome)` em vez de serem descartados
+- Importação: merge inteligente (não destrói dados existentes) + fallback registro-a-registro quando batch falha
+- `deploy.js` atualizado para sempre publicar `bind_insurance_FINAL.html` como `index.html` automaticamente
+
+**Pasta do projeto movida:** De `Downloads\App_Clientes_Bind` para `OneDrive\Personal Vault\App_Clientes_Bind`
