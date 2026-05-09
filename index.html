@@ -90,7 +90,7 @@ async function loadClients() {
     id: r.id, fn: r.fn||'', ln: r.ln||'', email: r.email||'', phone: r.phone||'',
     language: r.language||'Português', city: r.city||'', state: r.state||'', county: r.county||'',
     services: r.services||['health'], carrier: r.carrier||'', ap: r.ap||0, an2: r.an2||0,
-    source: r.source||'', status: r.status||'', visa: r.visa||'', agent: r.agent||'',
+    source: r.source||'', status: r.status||'', visa: (r.visa||'').toLowerCase(), agent: r.agent||'',
     appMonth: r.app_month||'', consent: r.consent||'', months: r.months||0,
     effDate: r.eff_date||'', type: r.type||'Obamacare', val: r.val||0, mo: r.mo||0, yr: r.yr||0,
     renovado: r.renovado||'', cancelReason: r.cancel_reason||'',
@@ -109,13 +109,13 @@ function toDbRow(c) {
   const rn = v => Number(v)||0;
   return {
     fn: c.fn||null, ln: c.ln||null, email: c.email||null, phone: c.phone||null,
-    language: c.language||null, city: c.city||null, state: c.state||null,
+    language: (c.language||'').toLowerCase()||null, city: c.city||null, state: c.state||null,
     county: c.county||null, services: c.services||[],
-    carrier: c.carrier||null, ap: ri(c.ap), an2: ri(c.an2),
-    source: c.source||null, status: c.status||null,
-    visa: c.visa||null, agent: c.agent||null, app_month: c.appMonth||null,
+    carrier: (c.carrier||'').toLowerCase()||null, ap: ri(c.ap), an2: ri(c.an2),
+    source: (c.source||'').toLowerCase()||null, status: (c.status||'').toLowerCase()||null,
+    visa: (c.visa||'').toLowerCase()||null, agent: (c.agent||'').toLowerCase()||null, app_month: c.appMonth||null,
     consent: c.consent||null, months: ri(c.months),
-    eff_date: c.effDate||null, type: c.type||null,
+    eff_date: c.effDate||null, type: (c.type||'').toLowerCase()||null,
     val: rn(c.val), mo: rn(c.mo), yr: rn(c.yr),
     renovado: c.renovado||null, cancel_reason: c.cancelReason||null,
     email_renov_enviado: !!c.emailRenovEnviado,
@@ -248,7 +248,7 @@ function getFiltered(){
     if(f.state&&c.state!==f.state)return false;
     if(f.status){if((c.status||'').toLowerCase()!==f.status.toLowerCase())return false;}
     if(f.source&&(c.source||'').toLowerCase()!==f.source.toLowerCase())return false;
-    if(f.visa&&c.visa!==f.visa)return false;
+    if(f.visa&&(c.visa||"").toLowerCase()!==(f.visa||"").toLowerCase())return false;
     if(f.type&&c.type!==f.type)return false;
     if(f.language&&c.language!==f.language)return false;
     if(f.service&&!(c.services||[]).includes(f.service))return false;

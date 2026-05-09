@@ -177,3 +177,21 @@ O Vercel serve o `index.html` na URL raiz (`/`). Como o `deploy.js` nunca inclu�
 4. Arquivo salvo e deploy executado via DEPLOY_NOW.bat
 
 **Lição:** A planilha Excel contém uma linha de totais (SUM) no final. O importador agora ignora linhas onde firstName E lastName estão ambos vazios/nulos.
+
+---
+
+## [09/05/2026] Fix: Case-insensitive filters (visa, status, language, carrier, source, agent, type)
+
+**Problem**: Client-side filters returning 0 results even though data exists in Supabase.
+**Root cause**: DB values are stored lowercase (normalized in prior session), but the JavaScript filter comparison was case-sensitive. E.g. "green card" (DB) ≠ "Green Card" (dropdown).
+**Architecture note**: Filtering is entirely client-side. `loadClients()` loads ALL records; `getFiltered()` filters them in memory using `ST.filter` state. There is no `.eq()` server-side filter for these fields.
+
+**Fixes applied to `bind_insurance_FINAL.html`**:
+1. `loadClients()`: `visa: r.visa||''` → `visa: (r.visa||'').toLowerCase()` — normalize on load
+2. `toDbRow()`: `visa: c.visa||null` → `visa: (c.visa||'').toLowerCase()||null` — normalize on save
+3. `getFiltered()`: `c.visa!==f.visa` → `(c.visa||"").toLowerCase()!==(f.visa||"").toLowerCase()` — case-insensitive comparison
+4. `toDbRow()`: Also normalized status, type, language, carrier, source, agent fields to lowercase on save
+
+**Total changes**: 9 replacements, file grew from 94273 → 94469 characters.
+**Script used**: `fix_filters.js` (in Claude outputs folder) + `RUN_FIX.bat`
+**Deployed via**: DEPLOY_NOW.bat → GitHub Bindinsurance/crm main → Vercel auto-deploy
