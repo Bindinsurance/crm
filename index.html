@@ -8,7 +8,7 @@
 <!-- SECURITY HEADERS -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://lhesgpbzwnchmumhcmpm.supabase.co wss://lhesgpbzwnchmumhcmpm.supabase.co; img-src 'self' data: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<!-- BUILD: 2026-05-04-security-v10 -->
+<!-- BUILD: 2026-05-07-merge-v3 -->
 <title>Bind Insurance CRM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
@@ -103,18 +103,27 @@ async function loadClients() {
 }
 
 function toDbRow(c) {
+  // INTEGER columns must be whole numbers — Math.round prevents Supabase batch rejection
+  const ri = v => Math.round(Number(v)||0);
+  // NUMERIC columns accept decimals
+  const rn = v => Number(v)||0;
   return {
-    fn: c.fn, ln: c.ln, email: c.email, phone: c.phone, language: c.language,
-    city: c.city, state: c.state, county: c.county, services: c.services,
-    carrier: c.carrier, ap: c.ap, an2: c.an2, source: c.source, status: c.status,
-    visa: c.visa, agent: c.agent, app_month: c.appMonth, consent: c.consent,
-    months: c.months, eff_date: c.effDate, type: c.type, val: c.val, mo: c.mo, yr: c.yr,
-    renovado: c.renovado, cancel_reason: c.cancelReason,
-    email_renov_enviado: c.emailRenovEnviado, notif_update_enviado: c.notifUpdateEnviado,
-    obs: c.obs, car_carrier: c.carCarrier, policy_num: c.policyNum,
-    eff_date_car: c.effDateCar, expire_date_car: c.expireDateCar,
-    num_cars: c.numCars, deductible: c.deductible, value_pol: c.valuePol,
-    car_source: c.carSource, car_type: c.carType
+    fn: c.fn||null, ln: c.ln||null, email: c.email||null, phone: c.phone||null,
+    language: c.language||null, city: c.city||null, state: c.state||null,
+    county: c.county||null, services: c.services||[],
+    carrier: c.carrier||null, ap: ri(c.ap), an2: ri(c.an2),
+    source: c.source||null, status: c.status||null,
+    visa: c.visa||null, agent: c.agent||null, app_month: c.appMonth||null,
+    consent: c.consent||null, months: ri(c.months),
+    eff_date: c.effDate||null, type: c.type||null,
+    val: rn(c.val), mo: rn(c.mo), yr: rn(c.yr),
+    renovado: c.renovado||null, cancel_reason: c.cancelReason||null,
+    email_renov_enviado: !!c.emailRenovEnviado,
+    notif_update_enviado: !!c.notifUpdateEnviado,
+    obs: c.obs||null, car_carrier: c.carCarrier||null, policy_num: c.policyNum||null,
+    eff_date_car: c.effDateCar||null, expire_date_car: c.expireDateCar||null,
+    num_cars: ri(c.numCars), deductible: rn(c.deductible), value_pol: rn(c.valuePol),
+    car_source: c.carSource||null, car_type: c.carType||null
   };
 }
 
@@ -769,6 +778,7 @@ function bindEv(){
           let allClients=[];
           let counter=0;
           const sheetSummary=[];
+          let blankNames=0;
 
           wb.SheetNames.forEach(sheetName=>{
             const ws=wb.Sheets[sheetName];
@@ -781,7 +791,7 @@ function bindEv(){
             const allHdrVals=[...hdr,...hdr0];
             const isCar=allHdrVals.some(h=>String(h||'').toLowerCase().includes('policy number')||String(h||'').toLowerCase().includes('number of cars')||(String(h||'').toLowerCase().includes('carrie')&&String(h||'').toLowerCase().includes('effective')));
             const isCarSheet=sheetName.toLowerCase().includes('car')||sheetName.toLowerCase().includes('carro')||sheetName.toLowerCase().includes('auto')||isCar;
-            const dataRows=rows.slice(2).filter(r=>r[0]&&String(r[0]).trim()!=='');
+            const dataRows=rows.slice(2).filter(r=>r.some(v=>v!==undefined&&v!==null&&String(v).trim()!==''));
 
             if(dataRows.length===0)return;
 
@@ -834,7 +844,14 @@ function bindEv(){
             }
 
             // Exclude footer/subtotal rows: rows where fn is purely numeric (e.g. "11" = SUBTOTAL count row)
-            sheetClients=sheetClients.filter(c=>c.fn&&c.fn.trim()!==''&&!/^\d+(\.\d+)?$/.test(c.fn.trim()));
+            sheetClients=sheetClients.filter(c=>!/^\d+(\.\d+)?$/.test((c.fn||'').trim()));
+            // Count and fix blank fn/ln — assign placeholder instead of silently dropping
+            sheetClients.forEach(c=>{
+              const hasMissingName=!c.fn||c.fn.trim()===''||!c.ln||c.ln.trim()==='';
+              if(hasMissingName)blankNames++;
+              if(!c.fn||c.fn.trim()==='')c.fn='(Sem Nome)';
+              if(!c.ln||c.ln.trim()==='')c.ln='(Sem Sobrenome)';
+            });
             allClients=allClients.concat(sheetClients);
             sheetSummary.push(`• ${sheetName}: ${sheetClients.length} clientes (${isCarSheet?'Carro':'Saúde'})`);
           });
@@ -843,13 +860,57 @@ function bindEv(){
           ss({data:allClients});
           if(sbClient&&sbUser){
             (async()=>{try{
-              await sbClient.from('clients').delete().not('id','is',null);
-              const rows=allClients.map(toDbRow);
-              for(let i=0;i<rows.length;i+=100){await sbClient.from('clients').insert(rows.slice(i,i+100));}
-              alert('✅ Importação concluída e salva!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes');
-            }catch(e){alert('✅ Importação concluída!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes');}})();
+              // Smart merge: load existing keys from Supabase, only insert records not already present
+              let existing=[];let pg=0;const PG=1000;
+              while(true){
+                const {data:pd,error:pe}=await sbClient.from('clients').select('fn,ln,phone').range(pg*PG,(pg+1)*PG-1);
+                if(pe||!pd||pd.length===0)break;
+                existing=existing.concat(pd);
+                if(pd.length<PG)break;
+                pg++;
+              }
+              // Build dedup key: fn|ln (lowercased, trimmed)
+              const existingKeys=new Set(existing.map(r=>`${(r.fn||'').trim().toLowerCase()}|${(r.ln||'').trim().toLowerCase()}`));
+              const newClients=allClients.filter(c=>{
+                const key=`${(c.fn||'').trim().toLowerCase()}|${(c.ln||'').trim().toLowerCase()}`;
+                return !existingKeys.has(key);
+              });
+              const alreadyExisted=allClients.length-newClients.length;
+              let inserted=0,failed=0,failedNames=[];
+              if(newClients.length>0){
+                const dbRows=newClients.map(toDbRow);
+                // Try in batches of 100; if a batch fails, retry one by one to save every valid record
+                for(let i=0;i<dbRows.length;i+=100){
+                  const batch=dbRows.slice(i,i+100);
+                  const {error:batchErr}=await sbClient.from('clients').insert(batch);
+                  if(!batchErr){inserted+=batch.length;}
+                  else{
+                    // Batch failed — insert one by one to isolate the problem
+                    for(let j=0;j<batch.length;j++){
+                      const {error:rowErr}=await sbClient.from('clients').insert([batch[j]]);
+                      if(!rowErr){inserted++;}
+                      else{failed++;failedNames.push(`${newClients[i+j].fn} ${newClients[i+j].ln}: ${rowErr.message}`);}
+                    }
+                  }
+                }
+              }
+              // Reload all clients from DB so UI shows full list (existing + new)
+              const reloaded=await loadClients();
+              if(reloaded)ss({data:reloaded});
+              let msg='✅ Importação (merge inteligente) v2 concluída!\n\n'+sheetSummary.join('\n')+'\n\n';
+              msg+='📊 Resultado:\n';
+              msg+='• '+inserted+' novo(s) cliente(s) adicionado(s)\n';
+              msg+='• '+alreadyExisted+' já existia(m) no banco — não duplicado(s)';
+              if(failed>0)msg+='\n\n⚠️ '+failed+' registro(s) com erro ao salvar:\n'+failedNames.slice(0,5).join('\n')+(failedNames.length>5?'\n...e mais '+(failedNames.length-5):'');
+              if(blankNames>0)msg+='\n\n⚠️ '+blankNames+' registro(s) com nome em branco marcados como "(Sem Nome)".';
+              alert(msg);
+            }catch(e){alert('Erro no merge: '+e.message);}})();
           }else{
-            setTimeout(()=>alert('✅ Importação concluída!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes'),100);
+            setTimeout(()=>{
+              let msg='✅ Importação concluída (sem conexão com banco)!\n\n'+sheetSummary.join('\n')+'\n\nTotal: '+allClients.length+' clientes';
+              if(blankNames>0)msg+='\n\n⚠️ '+blankNames+' registro(s) com nome em branco marcados como "(Sem Nome)".';
+              alert(msg);
+            },100);
           }
         }catch(err){alert('Erro ao importar: '+err.message);}
       };
