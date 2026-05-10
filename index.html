@@ -845,6 +845,8 @@ function bindEv(){
 
             // Exclude footer/subtotal rows: rows where fn is purely numeric (e.g. "11" = SUBTOTAL count row)
             sheetClients=sheetClients.filter(c=>!/^\d+(\.\d+)?$/.test((c.fn||'').trim()));
+            // Exclude total rows: rows where BOTH fn AND ln are blank (e.g. Excel SUM footer rows)
+            sheetClients=sheetClients.filter(c=>!!(c.fn||'').trim()||!!(c.ln||'').trim());
             // Count and fix blank fn/ln — assign placeholder instead of silently dropping
             sheetClients.forEach(c=>{
               const hasMissingName=!c.fn||c.fn.trim()===''||!c.ln||c.ln.trim()==='';

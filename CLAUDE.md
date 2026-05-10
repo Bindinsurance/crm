@@ -180,6 +180,26 @@ O Vercel serve o `index.html` na URL raiz (`/`). Como o `deploy.js` nunca inclu�
 
 ---
 
+## [09/05/2026] REINCIDÊNCIA — Fantasma Carro voltou após reimportação
+
+**O problema voltou:** Dashboard mostrava novamente "Carro Anual" = $19,781.58 após nova importação da planilha.
+
+**Por que o fix anterior falhou:** O filtro adicionado em `newClients.filter` (linha 874) verificava `fn` e `ln` APÓS o `sheetClients.forEach` já ter substituído nomes em branco por `"(Sem Nome)"` / `"(Sem Sobrenome)"`. Resultado: a linha de totais passava com `fn="(Sem Nome)"`, burlaando o filtro.
+
+**Solução definitiva (09/05/2026):**
+1. Deletado novo registro fantasma do Supabase: id=`7397d9bf-aad6-4442-a542-367784e5c8fa`
+2. Adicionado filtro **ANTES** da substituição de placeholder (linha ~847):
+   ```javascript
+   // Exclude total rows: rows where BOTH fn AND ln are blank (e.g. Excel SUM footer rows)
+   sheetClients=sheetClients.filter(c=>!!(c.fn||'').trim()||!!(c.ln||'').trim());
+   ```
+   Este filtro remove linhas com fn E ln vazios ANTES de qualquer transformação.
+3. Verificado: total car = $9,890.79 (50 registros) ✅
+
+**Lição reforçada:** Sempre filtrar linhas totalmente vazias ANTES de aplicar placeholders. O filtro em `newClients.filter` não serve para isso pois roda depois dos placeholders já terem sido aplicados.
+
+---
+
 ## [09/05/2026] Fix: Case-insensitive filters (visa, status, language, carrier, source, agent, type)
 
 **Problem**: Client-side filters returning 0 results even though data exists in Supabase.
