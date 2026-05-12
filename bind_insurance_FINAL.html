@@ -168,7 +168,7 @@ const USERS=[{u:'Eduardo',p:'edu2024',name:'Eduardo',color:C.blue},{u:'Larissa',
 const AGENTS=['Eduardo','Larissa'];
 const CARRIERS=['Oscar Insurance Company of Florida','Oscar Health Plan of Georgia','Oscar Health Plan of North Carolina, Inc','Ambetter from Sunshine Health','Ambetter of North Carolina','Ambetter from Absolute Total Care','UnitedHealthcare','Cigna Health and Life Insurance Company','Blue Cross and Blue Shield of Texas','Aetna CVS Health','Florida Blue HMO'];
 const CAR_CARRIERS=['Progressive','Kemper','State Farm','Allstate','Geico','Travelers','Liberty Mutual'];
-const VISA_OPTS=['Application','Citizen','E2','Green Card','I-94','I797','L1','O','R1','Student','Work Permit','797C'];
+const VISA_OPTS=['Citizen','E2','Green Card','I-94','I797','L1','O','R1','Student','Work Permit','797C'];
 const US_STATES=['AL','AZ','CA','CO','CT','FL','GA','IL','IN','MA','MD','MI','MN','MO','NC','NJ','NV','NY','OH','PA','SC','TN','TX','VA','WA'];
 const SOURCES=['Renew','Refer','New','Marketing','cancel','Cliente','Trafego','Indicacao'];
 const LANGS=['Português','English','Español','Outro'];
@@ -244,17 +244,18 @@ function getFiltered(){
     const q=(ST.search||'').toLowerCase();
     if(q&&!`${c.fn} ${c.ln} ${c.email||''} ${c.city||''} ${c.phone||''}`.toLowerCase().includes(q))return false;
     const f=ST.filters;
-    if(f.agent&&c.agent!==f.agent)return false;
-    if(f.state&&c.state!==f.state)return false;
-    if(f.status){if((c.status||'').toLowerCase()!==f.status.toLowerCase())return false;}
-    if(f.source&&(c.source||'').toLowerCase()!==f.source.toLowerCase())return false;
-    if(f.visa&&(c.visa||"").toLowerCase()!==(f.visa||"").toLowerCase())return false;
-    if(f.type&&c.type!==f.type)return false;
-    if(f.language&&c.language!==f.language)return false;
+    const ci=(a,b)=>(a||'').toLowerCase()===(b||'').toLowerCase();
+    if(f.agent&&!ci(c.agent,f.agent))return false;
+    if(f.state&&!ci(c.state,f.state))return false;
+    if(f.status){if(!ci(c.status,f.status))return false;}
+    if(f.source&&!ci(c.source,f.source))return false;
+    if(f.visa&&!ci(c.visa,f.visa))return false;
+    if(f.type&&!ci(c.type,f.type))return false;
+    if(f.language&&!ci(c.language,f.language))return false;
     if(f.service&&!(c.services||[]).includes(f.service))return false;
-    if(f.carrier&&c.carrier!==f.carrier)return false;
-    if(f.county&&c.county!==f.county)return false;
-    if(f.cancelReason&&c.cancelReason!==f.cancelReason)return false;
+    if(f.carrier&&!ci(c.carrier,f.carrier))return false;
+    if(f.county&&!ci(c.county,f.county))return false;
+    if(f.cancelReason&&!ci(c.cancelReason,f.cancelReason))return false;
     if(f.consent){const has=c.consent==='X'||c.consent==='x';if(f.consent==='yes'&&!has)return false;if(f.consent==='no'&&has)return false;}
     if(f.emailRenovEnviado!==undefined&&f.emailRenovEnviado!==''){if(Boolean(c.emailRenovEnviado)!==Boolean(f.emailRenovEnviado==='true'))return false;}
     if(f.notifUpdateEnviado!==undefined&&f.notifUpdateEnviado!==''){if(Boolean(c.notifUpdateEnviado)!==Boolean(f.notifUpdateEnviado==='true'))return false;}
@@ -326,7 +327,7 @@ function rDash(){
   const carActive=active.filter(c=>(c.services||[]).includes('car'));
   const pendEmail=d.filter(c=>!c.emailRenovEnviado&&(c.status||'').toLowerCase()==='application').length;
   const pendNotif=d.filter(c=>!c.notifUpdateEnviado&&(c.status||'').toLowerCase()==='application').length;
-  const byAgent=AGENTS.reduce((acc,a)=>{const ag=d.filter(c=>c.agent===a);acc[a]={total:ag.length,active:ag.filter(c=>(c.status||'').toLowerCase()==='application').length,mo:ag.reduce((s,c)=>s+(Number(c.mo)||0),0)};return acc;},{});
+  const byAgent=AGENTS.reduce((acc,a)=>{const ag=d.filter(c=>(c.agent||'').toLowerCase()===a.toLowerCase());acc[a]={total:ag.length,active:ag.filter(c=>(c.status||'').toLowerCase()==='application').length,mo:ag.reduce((s,c)=>s+(Number(c.mo)||0),0)};return acc;},{});
   const recent=[...d].slice(-5).reverse();
 
   // Cancel reasons breakdown
@@ -561,7 +562,7 @@ function rDrawer(){
         ${sh('📍 Localização')}
         ${g(fld('city','Cidade'),fld('state','Estado','text',US_STATES),fld('county','Condado'),'<div></div>')}
         ${sh('🤝 Agente & Status')}
-        ${g(fld('agent','Agente','text',AGENTS),fld('source','Origem','text',SOURCES),fld('status','Status','text',['Application','cancel']),'<div></div>')}
+        ${g(fld('agent','Agente','text',AGENTS),fld('source','Origem','text',SOURCES),fld('status','Status','text',['Application','cancel']),fld('visa','Visto','text',[''].concat(VISA_OPTS)))}
         ${isCancelled?`${sh('❌ Motivo do Cancelamento')}<div style="margin-bottom:8px">${fld('cancelReason','Selecione o motivo','text',[''].concat(CANCEL_REASONS),true)}</div>`:''}
         ${sh('📋 Outros')}
         ${g(fld('renovado','Renovado'),fld('consent','Consentimento'),fld('appMonth','Mês Aplicação (YYYY-MM)'),'<div></div>')}
