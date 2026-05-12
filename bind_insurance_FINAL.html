@@ -88,7 +88,7 @@ async function loadClients() {
   const data = allData;
   return data.map(r => ({
     id: r.id, fn: r.fn||'', ln: r.ln||'', email: r.email||'', phone: r.phone||'',
-    language: r.language||'Português', city: r.city||'', state: r.state||'', county: r.county||'',
+    language: r.language||'Português', city: r.city||'', state: (r.state||'').toUpperCase()||'', county: r.county||'',
     services: r.services||['health'], carrier: r.carrier||'', ap: r.ap||0, an2: r.an2||0,
     source: r.source||'', status: r.status||'', visa: (r.visa||'').toLowerCase(), agent: r.agent||'',
     appMonth: r.app_month||'', consent: r.consent||'', months: r.months||0,
@@ -109,7 +109,7 @@ function toDbRow(c) {
   const rn = v => Number(v)||0;
   return {
     fn: c.fn||null, ln: c.ln||null, email: c.email||null, phone: c.phone||null,
-    language: (c.language||'').toLowerCase()||null, city: c.city||null, state: c.state||null,
+    language: (c.language||'').toLowerCase()||null, city: c.city||null, state: (c.state||'').toUpperCase()||null,
     county: c.county||null, services: c.services||[],
     carrier: (c.carrier||'').toLowerCase()||null, ap: ri(c.ap), an2: ri(c.an2),
     source: (c.source||'').toLowerCase()||null, status: (c.status||'').toLowerCase()||null,
