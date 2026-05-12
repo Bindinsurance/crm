@@ -233,3 +233,35 @@ O Vercel serve o `index.html` na URL raiz (`/`). Como o `deploy.js` nunca inclu�
 **Adicionados**: E2, L1, Application. **Mantido**: 797C (para não quebrar registros existentes).
 **Arquivo alterado**: `bind_insurance_FINAL.html` linha 171 — `const VISA_OPTS`
 **Deployed via**: DEPLOY_VISA_FIX.bat → GitHub Bindinsurance/crm main → Vercel auto-deploy
+
+---
+
+## [12/05/2026] Fix: 8 bugs críticos — filtros, dashboard agentes, VISTO, botões editar/excluir
+
+**Arquivo principal a partir desta sessão:** `bind_insurance_FINAL_6.html` (deploy via `upload_crm.js` atualizado)
+
+**Problemas corrigidos:**
+
+### 1. Dashboard — Agentes mostrando 0 clientes
+**Causa:** `byAgent` usava `c.agent === a` (case-sensitive). Dados do Supabase podiam vir como `'eduardo'` vs `'Eduardo'`.
+**Fix:** Comparação case-insensitive: `(c.agent||'').toLowerCase() === a.toLowerCase()`
+
+### 2. VISTO adicionado na aba Dados do formulário
+**Causa:** Campo `visa` só existia na aba Serviços (seção Saúde), invisível para clientes com só Carro.
+**Fix:** Adicionado `fld('visa','Visto',...)` na seção "Agente & Status" da aba Dados, disponível para todos os clientes.
+
+### 3. Remoção de 'Application' do campo VISTO
+**Causa:** 'Application' estava incorretamente nos dados do Supabase e nas opções de VISA.
+**Fix:** `normVisa()` em `loadClients()` sanitiza automaticamente `visa='Application'` → `''`. Removido de VISA_OPTS.
+
+### 4–8. Todos os filtros retornando 0 resultados (Idioma, Tipo, Estado, Motivo Cancelamento, Agente)
+**Causa raiz:** `getFiltered()` usava `===` (case-sensitive) para todos os campos. Dados importados do Excel chegam ao Supabase em case variado (`'english'`, `'obamacare'`, `'fl'`, etc.)
+**Fix 1:** Função helper `ci(a,b)` para comparação case-insensitive, aplicada em todos os filtros de texto.
+**Fix 2:** `loadClients()` normaliza campos na carga: `normAgent()`, `normLang()`, `normType()`, `normVisa()` — mapeiam para o valor canônico do array correspondente.
+**Fix 3:** VISA_OPTS atualizado para versão correta: `['Citizen','E2','Green Card','I-94','I797','L1','O','R1','Student','Work Permit','797C']`
+
+### 9. Botões Editar e Excluir quebrados para dados do Supabase
+**Causa:** Busca usava `x.id === Number(btn.dataset.id)`. UUIDs do Supabase são strings — `Number(uuid)` = `NaN`, nunca encontrava o cliente.
+**Fix:** Alterado para `String(x.id) === String(btn.dataset.id)` (funciona para UUID e IDs numéricos do SEED).
+
+**Deploy:** `upload_crm.js` atualizado para usar `bind_insurance_FINAL_6.html` → GitHub Bindinsurance/crm main → Vercel auto-deploy
